@@ -36,7 +36,19 @@ def image(inject: dict):
     return image_arr
 
 def check_format(dataset):
-    if isinstance(dataset, str) or isinstance(dataset, Path):
+    '''
+    Allows functions to be given either a dataset tensor or its path.
+    
+    Parameters
+    ----------
+    dataset : str, pathlib.Path or torch.tensor
+
+    Returns
+    -------
+    dataset : torch.tensor
+
+    '''
+    if isinstance(dataset, (str,Path)):
         dataset = torch.load(dataset)
     return dataset
 
@@ -44,40 +56,71 @@ def check_format(dataset):
 # kwargs is used because we will input all base parameters to all functions
 
 def chirp_mass(mass_1, mass_2, **kwargs): 
+    '''
+    Conversion function: Given 15 base parameters returns chirp mass.
+    '''
     return pow(mass_1*mass_2, 3/5)/pow(mass_1+mass_2, 1/5)
 
 
 def mass_ratio(mass_1, mass_2, **kwargs): 
+    '''
+    Conversion function: Given 15 base parameters returns mass ratio.
+    '''
     return np.minimum(mass_1, mass_2)/np.maximum(mass_1, mass_2)
 
 def symetric_mass_ratio(mass_1, mass_2, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns symetric mass ratio.
+    '''
     q = mass_ratio(mass_1, mass_2)
     return q/(1+q**2)
 
 def chi_1(a_1, tilt_1, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns parallel component of
+    unit-less spin.
+    '''
     return a_1*np.cos(tilt_1)
 
 def chi_2(a_2, tilt_2, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns parallel component of
+    unit-less spin.
+    '''
     return a_2*np.cos(tilt_2)
 
 def chi_eff(mass_1, mass_2, a_1, a_2, tilt_1, tilt_2, **kwargs): 
+    '''
+    Conversion function: Given 15 base parameters returns effective spin.
+    '''
     chi1 = chi_1(a_1, tilt_1)
     chi2 = chi_2(a_2, tilt_2)
     return (mass_1*chi1+mass_2*chi2)/(mass_1+mass_2)
 
 def chi_1_in_plane(a_1, tilt_1, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns the perpendicular 
+    component of unit-less spin.
+    '''
     return np.abs(a_1*np.sin(tilt_1))
 
 def chi_2_in_plane(a_2, tilt_2, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns the perpendicular 
+    component of unit-less spin.
+    '''
     return np.abs(a_2*np.sin(tilt_2))
 
 def chi_p(mass_1, mass_2, a_1, a_2, tilt_1, tilt_2, **kwargs):
+    '''
+    Conversion function: Given 15 base parameters returns precesion spin.
+    '''
     q = mass_ratio(mass_1, mass_2)
     chi1_p = chi_1_in_plane(a_1, tilt_1)
     chi2_p = chi_2_in_plane(a_2, tilt_2)
     return np.maximum(chi1_p, q*(3*q+4)/(4*q+3)*chi2_p)
 
-redef_dict = {
+redef_dict = { # MANY MISSING (redshift) #TODO
     'chirp_mass': chirp_mass,
     'mass_ratio': mass_ratio,
     'symetric_mass_ratio': symetric_mass_ratio,
@@ -120,6 +163,9 @@ alias_dict = { # MANY MISSING #TODO
 def convert_dataset(dataset, params_list, outpath=None, debug=[]):
     '''
 
+    Inputs a raw dataset (list of dictionaries) and outputs a tuple of arrays
+    to be used in training.
+
     Parameters
     ----------
     dataset : string, pathlib.Path or dataset itself
@@ -134,7 +180,7 @@ def convert_dataset(dataset, params_list, outpath=None, debug=[]):
 
     Returns
     -------
-    converted_dataset : list of [data, labels] pairs
+    converted_dataset : tuple of [data, labels] pairs
         Dataset to actually be train on.
 
     '''
@@ -180,7 +226,7 @@ def convert_dataset(dataset, params_list, outpath=None, debug=[]):
 def extract_parameters(dataset, params_list):
     '''
     Extracts an array of specified parameters 
-    from a dataset (or its path)
+    from a dataset (or its path).
     '''
     
     dataset = check_format(dataset)
@@ -206,7 +252,7 @@ def extract_parameters(dataset, params_list):
 def extract_SNR(dataset, detector_list):
     '''
     Extracts an array of SNR peaks of specified 
-    detectors from a dataset (or its path)
+    detectors from a dataset (or its path).
     '''
     
     dataset = check_format(dataset)
@@ -221,6 +267,9 @@ def extract_SNR(dataset, detector_list):
                 SNR_list.append(SNR_dict[ifo])
 
 def get_param_alias(parameter):
+    '''
+    Returns alias of given parameter. Used for plotting.
+    '''
     try:
         alias = alias_dict[parameter]
     except KeyError:
@@ -229,6 +278,9 @@ def get_param_alias(parameter):
     return alias
 
 def get_param_units(parameter):
+    '''
+    Returns units of given parameter. Used for plotting.
+    '''
     try:
         unit = unit_dict[parameter]
     except KeyError:
@@ -238,6 +290,34 @@ def get_param_units(parameter):
 
 def plot_hist(dataset, params_list, fig=None, figsize=None, 
               plot_layout=(1,1,1), *hist_args, **hist_kwargs):
+    '''
+    Plots a histogram of a given parameter list on a single subplot
+
+    Parameters
+    ----------
+    dataset : TYPE
+        Raw_dataset.
+    params_list : list
+        List of parameters to plot.
+    fig : matplotlib.pyplot.figure, optional
+        Matplotlib.pyplot figure to be plotted on. Especially useful to paint
+        various plots manually. The default is None.
+    figsize : tuple, optional
+        'figsize' parameter for fig. The default is None.
+    plot_layout : tuple, optional
+        Plot layout. Useful mostly to paint
+        various plots manually. Only The default is (1,1,1).
+    *hist_args : iterable
+        Arguments to be passed to plt.hist().
+    **hist_kwargs : dict
+        Keyword arguments to be passed to plt.hist().
+
+    Returns
+    -------
+    fig : matplotlib.pyplot.figure
+        updated figure with the histogram now plotted.
+
+    '''
     
     dataset = check_format(dataset)
     data = extract_parameters(dataset, params_list)
@@ -257,7 +337,32 @@ def plot_hist(dataset, params_list, fig=None, figsize=None,
     return fig
 
 def plot_hists(dataset, param_array: np.ndarray, fig=None, figsize=None, 
-               plot_layout=(1,1,1), *hist_args, **hist_kwargs):
+               *hist_args, **hist_kwargs):
+    '''
+    Plots histograms of the given parameter array on one or more subplots
+
+    Parameters
+    ----------
+    dataset : TYPE
+        Raw_dataset.
+    param_array : np.ndarray
+        Array of parameters to plot. Dictates figure layout
+    fig : matplotlib.pyplot.figure, optional
+        Matplotlib.pyplot figure to be plotted on. Especially useful to paint
+        various plots manually. The default is None.
+    figsize : tuple, optional
+        'figsize' parameter for fig. The default is None.
+    *hist_args : iterable
+        Arguments to be passed to plt.hist().
+    **hist_kwargs : dict
+        Keyword arguments to be passed to plt.hist().
+
+    Returns
+    -------
+    fig : matplotlib.pyplot.figure
+        updated figure with the histogram now plotted.
+
+    '''
     #Study way of having different args and kwargs for each hist
     
     if fig == None: 

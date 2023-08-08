@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Jul  4 18:31:38 2023
-
-@author: danie
-"""
 import torch
 
 from pathlib import Path
@@ -13,14 +8,8 @@ import matplotlib.pyplot as plt
 from pprint import pprint
 
 
-'''
 
- Q-Transform          Extracted Parameters         Unconditional Flow?
-(128, 128, 3)  -->      (n_parameters,)    -->   (n_samples, n_parameters)
-
-'''
-
-# Ejemplo de script para crear y entrenar el modelo
+# Basic example for dataset conversion and study
 
 
 from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists

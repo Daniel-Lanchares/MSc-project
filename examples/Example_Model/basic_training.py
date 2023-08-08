@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Tue Aug  8 13:29:06 2023
-
-@author: danie
-"""
 
 from pathlib import Path
 import numpy as np
