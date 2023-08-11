@@ -9,6 +9,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+from torchvision import models
+
 import numpy as np
 
 from functools import partial
@@ -19,9 +21,22 @@ from collections import OrderedDict
 from .net_blocks import ResNetBasicBlock
 
 '''
-This function should create a XResNet
+This function should create a XResNet (currently a normal ResNet)
+
+Source for full resnet architecture: https://towardsdatascience.com/residual-network-implementing-resnet-a7da63c7b278
+Source for feature extractor: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 '''
-def create_net(input_channels:int, output_length:int, 
+def create_feature_extractor(n_features, base_net=models.resnet18(weights=models.ResNet18_Weights.DEFAULT)):
+    
+    for param in base_net.parameters():
+        param.requires_grad = False
+    
+    num_ftrs = base_net.fc.in_features
+    base_net.fc = nn.Linear(num_ftrs, n_features)
+    
+    return base_net
+
+def create_full_net(input_channels:int, output_length:int, 
                block=ResNetBasicBlock, deepths=[2, 2, 2, 2], *args, **kwargs):
     '''
     
@@ -32,8 +47,8 @@ def create_net(input_channels:int, output_length:int,
     input_channels : int
         Channels of the image (Number of detectors).
     output_length : int
-        Number of parameters to do the regresion on.
-        Might change meaning when hooking it to the flow
+        If alone: Number of parameters to do the regresion on.
+        If hooked to normalizing flow: Number of features to train the flow on
     block : object, optional
         Block type for the net. The default is ResNetBasicBlock.
     deepths : list[int], optional

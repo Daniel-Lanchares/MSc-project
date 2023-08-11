@@ -75,21 +75,27 @@ def symetric_mass_ratio(mass_1, mass_2, **kwargs):
     q = mass_ratio(mass_1, mass_2)
     return q/(1+q**2)
 
-def chi_1(a_1, tilt_1, **kwargs):
+def chi_1(a_1, tilt_1=0, **kwargs):
     '''
     Conversion function: Given 15 base parameters returns parallel component of
     unit-less spin.
+    
+    If tilt_1 isn't provided assumes aligned spin (might introduced anti-align
+    posibility with 50/50 chance of 0 or np.pi)
     '''
     return a_1*np.cos(tilt_1)
 
-def chi_2(a_2, tilt_2, **kwargs):
+def chi_2(a_2, tilt_2=0, **kwargs):
     '''
     Conversion function: Given 15 base parameters returns parallel component of
     unit-less spin.
+    
+    If tilt_2 isn't provided assumes aligned spin (might introduced anti-align
+    posibility with 50/50 chance of 0 or np.pi)
     '''
     return a_2*np.cos(tilt_2)
 
-def chi_eff(mass_1, mass_2, a_1, a_2, tilt_1, tilt_2, **kwargs): 
+def chi_eff(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs): 
     '''
     Conversion function: Given 15 base parameters returns effective spin.
     '''
@@ -97,21 +103,21 @@ def chi_eff(mass_1, mass_2, a_1, a_2, tilt_1, tilt_2, **kwargs):
     chi2 = chi_2(a_2, tilt_2)
     return (mass_1*chi1+mass_2*chi2)/(mass_1+mass_2)
 
-def chi_1_in_plane(a_1, tilt_1, **kwargs):
+def chi_1_in_plane(a_1, tilt_1=0, **kwargs):
     '''
     Conversion function: Given 15 base parameters returns the perpendicular 
     component of unit-less spin.
     '''
     return np.abs(a_1*np.sin(tilt_1))
 
-def chi_2_in_plane(a_2, tilt_2, **kwargs):
+def chi_2_in_plane(a_2, tilt_2=0, **kwargs):
     '''
     Conversion function: Given 15 base parameters returns the perpendicular 
     component of unit-less spin.
     '''
     return np.abs(a_2*np.sin(tilt_2))
 
-def chi_p(mass_1, mass_2, a_1, a_2, tilt_1, tilt_2, **kwargs):
+def chi_p(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
     '''
     Conversion function: Given 15 base parameters returns precesion spin.
     '''

@@ -6,14 +6,15 @@ import matplotlib.pyplot as plt
 
 import torch
 from torch.utils.data import DataLoader
+from torchvision import models
 
 
 from CBC_estimator.training.train_utils import QTDataset, train_model
-from CBC_estimator.nn.net_utils import create_net
-# from CBC_estimator.nn.flow_utils import create_flow # Only testing the ResNet for now
+from CBC_estimator.nn.net_utils import create_feature_extractor
+from CBC_estimator.nn.flow_utils import create_flow # Only testing the ResNet for now
 from CBC_estimator.dataset.dataset_utils import convert_dataset
 
-dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets')
+dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
 trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')
 trainset_dir = Path('../Trainsets')
 # print(dataset_dir)
@@ -42,15 +43,20 @@ train_config = {
     'learning_rate': 0.001, #Study how to change it mid-training
     }
 
-net_config = {
+net_config = { # This are to create a net from scratch
     'input_channels': 3,
     'output_length': 4, #4 when not testing the flow 
     'blocks_sizes': np.array([64, 128, 256, 512]),
     'deepths': [2, 2, 2, 2]
     }
-flow_config = { # Yet to be determined
+extractor_config = { # This are in substitution of the previous
+                     # Both are shown at once merely as an example
+    'n_features': 128,
+    'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    }
+flow_config = { # As it is now, it explodes instantly
     'input_dim': len(params_list),
-    'context_dim': net_config['output_length'], # I would expect, at least
+    'context_dim': extractor_config['n_features'],
     'num_flow_steps': 5,
     'base_transform_kwargs': { #This I will study in more detail #TODO
         'hidden_dim': 64,
@@ -60,7 +66,7 @@ flow_config = { # Yet to be determined
     }
 
 
-traindir = 'training_test_1'
+traindir = 'training_test_3_(extractor+flow,lr=0.001)'
 train_dataset = QTDataset(trainset)
 train_dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
 
@@ -70,7 +76,7 @@ train_dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size
 
 # Perhaps this way may be more readable
 
-net = create_net(**net_config)
+net = create_feature_extractor(**extractor_config)
 
 # Sanity check
 # for i, (x,y) in enumerate(train_dataloader):
@@ -78,9 +84,13 @@ net = create_net(**net_config)
 #         print(x.shape)
 #         print(net(x))
 
-# model = create_flow(emb_net=net, **flow_config)
+model = create_flow(emb_net=net, **flow_config)
 # print(model)
-model = net
+# model = net
+
+print(model)
+fig = plt.figure()
+plt.show()
 
 # Sanity check II
 # for i, (x,y) in enumerate(train_dataloader):
@@ -99,6 +109,7 @@ epoch_data, loss_data = train_model(model, train_dataloader, traindir, train_con
 epoch_data_avgd = epoch_data.reshape(20,-1).mean(axis=1)
 loss_data_avgd = loss_data.reshape(20,-1).mean(axis=1)
 
+plt.figure(figsize=(10, 8))
 plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
 plt.xlabel('Epoch Number')
 plt.ylabel('Mean Squared Error')
