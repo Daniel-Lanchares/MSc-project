@@ -12,7 +12,7 @@ from torchvision import models
 from CBC_estimator.training.train_utils import QTDataset, train_model
 from CBC_estimator.nn.net_utils import create_feature_extractor
 from CBC_estimator.nn.flow_utils import create_flow # Only testing the ResNet for now
-from CBC_estimator.dataset.dataset_utils import convert_dataset
+from CBC_estimator.dataset.dataset_utils import convert_dataset, image
 
 dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
 trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')
@@ -28,7 +28,7 @@ params_list = [
     ]
 
 dataset = []
-for seed in range(1):
+for seed in range(7):
     dataset = np.concatenate((dataset, torch.load(dataset_dir/f'Raw_dataset_{seed}.pt')))
     print(f'Loaded Raw_dataset_{seed}.pt')
 
@@ -37,10 +37,10 @@ trainset = convert_dataset(dataset, params_list)#trainset_dir/'4_parameter_train
 # All parameters are merelly examples
 train_config = {
     'num_epochs': 20,
-    'checkpoint_every_x_epochs': 5,
+    'checkpoint_every_x_epochs': 5, # Not yet implemented
     'batch_size': 64,
     'optim_type': 'SGD', # 'Adam'
-    'learning_rate': 0.001, #Study how to change it mid-training
+    'learning_rate': 0.005, #Study how to change it mid-training
     }
 
 net_config = { # This are to create a net from scratch
@@ -51,7 +51,7 @@ net_config = { # This are to create a net from scratch
     }
 extractor_config = { # This are in substitution of the previous
                      # Both are shown at once merely as an example
-    'n_features': 128,
+    'n_features': 4,
     'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     }
 flow_config = { # As it is now, it explodes instantly
@@ -65,9 +65,25 @@ flow_config = { # As it is now, it explodes instantly
         },
     }
 
+pre_process = models.ResNet18_Weights.DEFAULT.transforms(antialias=True) # True for internal compatibility reasons
+# print(pre_process)
 
-traindir = 'training_test_3_(extractor+flow,lr=0.001)'
-train_dataset = QTDataset(trainset)
+processed_trainset = (pre_process(trainset[0]), trainset[1]) # May implement directly in convert_dataset
+
+del dataset
+del trainset # The least RAM used the better
+
+# Test for prepocess (note that I did not correct the normalization, so it shows clipped)
+# n=0
+# fig = plt.figure(figsize=(12,8))
+# ax1 = fig.add_subplot(1,2,1)
+# ax1.imshow(image(trainset[0][n]))
+# ax2 = fig.add_subplot(1,2,2)
+# ax2.imshow(image(processed_trainset[0][n]))
+# plt.show()
+
+traindir = 'training_test_3_(processed_data,lr=0.005)'
+train_dataset = QTDataset(processed_trainset)
 train_dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
 
 
@@ -84,13 +100,12 @@ net = create_feature_extractor(**extractor_config)
 #         print(x.shape)
 #         print(net(x))
 
-model = create_flow(emb_net=net, **flow_config)
+# model = create_flow(emb_net=net, **flow_config)
 # print(model)
-# model = net
+model = net
 
-print(model)
-fig = plt.figure()
-plt.show()
+#print(model)
+
 
 # Sanity check II
 # for i, (x,y) in enumerate(train_dataloader):

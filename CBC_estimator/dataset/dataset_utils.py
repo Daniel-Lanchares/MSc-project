@@ -25,14 +25,17 @@ debug = ['dicts']
 #     def __getitem__(self, ix): 
 #         return self.x[ix], self.y[ix]
 
-def image(inject: dict):
+def image(inject: dict|np.ndarray):
     """
     Creates image array (compatible with plt.imshow()) 
     from injection's dictionary
     """
-    image_arr = np.dstack((inject['q-transforms']['L1'],
-                           inject['q-transforms']['H1'],
-                           inject['q-transforms']['V1']))
+    if isinstance(inject, dict):
+        image_arr = np.dstack((inject['q-transforms']['L1'],
+                               inject['q-transforms']['H1'],
+                               inject['q-transforms']['V1']))
+    else:
+        image_arr = np.dstack((inject[0],inject[1],inject[2]))
     return image_arr
 
 def check_format(dataset):
@@ -223,8 +226,10 @@ def convert_dataset(dataset, params_list, outpath=None, debug=[]):
             print('Selected parameters')
             pprint(new_params_dict)
             print('\n'*2)
-                
-    converted_dataset = (np.array(image_list), np.array(label_list))
+    
+    # Tough a roundabout, tensor(array(list)) is the recomended (faster) way
+    converted_dataset = (torch.tensor(np.array(image_list)), 
+                         torch.tensor(np.array(label_list)))
     if outpath != None: 
         torch.save(converted_dataset, outpath)
     return converted_dataset

@@ -52,9 +52,9 @@ def train_model(model, dataloader, outdir, train_config):
         for i, (x, y) in enumerate(dataloader):
             # Update the weights of the network
             opt.zero_grad() 
-            loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
-            # L = nn.MSELoss()
-            # loss_value = L(model(x), y.float()) # To test just the net -> Here lies the gradient issue
+            # loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
+            L = nn.MSELoss()
+            loss_value = L(model(x), y.float()) # To test just the net -> Here lies the gradient issue
             print(loss_value.item())
             loss_value.backward() 
             opt.step() 
