@@ -1,13 +1,13 @@
 # CBC_estimator
 
 Implementation of an NPE approach to gravitational wave parameter estimation through the use of normalizing flows.
-Once complete it will allow the user to train basic machine learning models to perform a regression task on a CBC signal based on its q-transform
+Once complete it will allow the user to train basic machine learning models to perform a regression task on a CBC signal based on its q-transform.
+Due to dependence on LALSuite algorithms it is restricted to Linux/MacOS operating systems
 
 ## Usage
 The process is meant to have four stages:
 
-- Dataset generation: Creation of 15 parameter injections and its injection in real noise. 
-Dataset generation has extra requirements and it is therefore kept separate.
+- Dataset generation: Creation of 15 parameter waveforms and its injection in real noise. 
 - Dataset preparation: Once the full datasets have been generated they can be viewed and plotted, as well as converted into trainsets that the training pipeline will understand.
 - Model training:
 - Inference on trained models:
