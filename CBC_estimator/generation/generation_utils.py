@@ -6,7 +6,6 @@ from gwpy.timeseries import TimeSeries
 from gwpy.signal import filter_design
 
 import numpy as np
-from multiprocessing import Value
 from skimage.transform import resize
 
 

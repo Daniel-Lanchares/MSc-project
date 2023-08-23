@@ -2,3 +2,5 @@ build/
 dist/
 CBC_estimator.egg-info/
 .eggs/
+.idea/*
+*.pyc

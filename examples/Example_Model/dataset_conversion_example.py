@@ -12,11 +12,12 @@ from pprint import pprint
 # Basic example for dataset conversion and study
 
 
-from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists
+from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists, image
 
 # This way I can have Toy, test and proper datasets in separate folders
-dat_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets') 
-print(dat_dir.resolve())
+files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')
+dat_dir = files_dir / 'Raw Datasets'
+trainset_dir = files_dir / 'Trainsets'
 
 # Dataset would be converted according to training parameters
 
@@ -33,7 +34,7 @@ params_list = [
 
 dataset = []
 for seed in range(1):
-    dataset = np.concatenate((dataset, torch.load(dat_dir/f'Raw_dataset_{seed}.pt')))
+    dataset = np.concatenate((dataset, torch.load(dat_dir/f'Raw_Dataset_{seed}.pt')))
     print(f'Loaded Raw_dataset_{seed}.pt')
 
 # print(np.array([data['id'] for data in dataset]))
@@ -42,14 +43,20 @@ print(f'Dataset size: {len(dataset)}\n')
 
 trainset = convert_dataset(dataset, params_list)
 
-print('Raw dataset')
-pprint(dataset[0])
-print()
-print('4 parameter trainset')
-print('images')
-print(trainset[0][0])
-print('labels')
-print(trainset[1][0])
+#TODO Make funtion in dataset_utils that plots the image of an iterable of indices
+# n = 4
+# pprint(dataset[n]['SNR'])
+# plt.imshow(image(dataset[n]))
+# plt.show()
+
+# print('Raw dataset')
+# pprint(dataset[0])
+# print()
+# print('4 parameter trainset')
+# print('images')
+# print(trainset[0][0])
+# print('labels')
+# print(trainset[1][0])
 
 # Add funtion to dataset_utils that does this more pretty (get_unit(parameter), etc...)
 # plt.hist(extract_parameters(dataset, ['mass_1','mass_2']))

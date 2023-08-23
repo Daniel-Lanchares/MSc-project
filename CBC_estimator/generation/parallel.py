@@ -14,7 +14,7 @@ from pycbc.filter import resample_to_delta_t, highpass, matched_filter
 from pycbc.psd import interpolate
 from bilby.gw.conversion import bilby_to_lalsimulation_spins
 
-from generation_utils import sine, cosine, gwpy_filter, get_psd, prepare_array, set_ids
+from .generation_utils import sine, cosine, gwpy_filter, get_psd, prepare_array, set_ids
 
 default_config = {
     'm_i': (5, 100),
@@ -38,7 +38,9 @@ default_config = {
     'minSNR': 5,
     'filt_order': 512,
     'q_interval': (-0.15, 0.1),
-    'num_workers': 4 # Might change in the future. Could be better to pass os.cpu_count()
+
+    'num_workers': 4,  # Might change in the future. Could be better to pass os.cpu_count()
+    'chunksize': 5
 }
 
 
@@ -107,18 +109,19 @@ class Injector:
         # Noise strain timeseries
         for ifo in ('L1', 'H1', 'V1'):
             # Read noise from file, notch_filter and resample to 2048 Hz
-            strain_pre = TimeSeries.read(f'ts-reference-{ifo}', format='hdf5')
+            strain_pre = TimeSeries.read(f'/home/daniel/Documentos/GitHub/MSc-files/Noise/ts-reference-{ifo}', format='hdf5')
             strain_pre = gwpy_filter(strain_pre, ifo)
 
             self.strains[ifo] = resample_to_delta_t(highpass(strain_pre.to_pycbc(), 20.0), 1.0 / 2048).crop(2, 2)
 
-        with Pool(self.config['num_workers']) as pool:
+        with Pool(processes=self.config['num_workers']) as pool:
             injections = np.ones(self.size, dtype=object)
             with tqdm(total=self.size, desc=f'Injection generation (seed: {self.seed})',
                       ncols=100) as p_bar:
-                for i, result in enumerate(pool.imap(self.generate_injection, parameter_lists)):
+                for i, result in enumerate(pool.imap_unordered(self.generate_injection, parameter_lists,
+                                                               chunksize=self.config['chunksize'])):
                     p_bar.update(1)
-                    injections[i] = result # Could discard None results here already. Test on linux
+                    injections[i] = result  # Could discard None results here already. Test on linux
         injections = set_ids(injections, self.seed)
         valid_injections = [x for x in injections if x is not None]
         return valid_injections
@@ -255,7 +258,7 @@ class Injector:
                 injection['id'] = 'valid'
                 result = injection
 
-        # print(f'finished injection {counter} out of {self.size}')
+        # print(f'finished injection ? out of {self.size}')
         return result
 
 
@@ -289,4 +292,3 @@ def non_whiten(timeseries, psd_series, order=None):
     non_whiten_t_series = f_series.to_timeseries()
     non_whiten_t_series = non_whiten_t_series.highpass_fir(20, order).lowpass_fir(300, order)
     return non_whiten_t_series.crop(1, 1)
-

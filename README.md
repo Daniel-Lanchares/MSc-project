@@ -13,11 +13,12 @@ The process is meant to have four stages:
 - Inference on trained models:
 
 ```Python
+import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists
 
-dataset = torch.load(dataset_path)
+dataset = torch.load('path/to/dataset')
 
 # Define the parameters to study the dataset/have your model trained on
 params_list = [
@@ -39,5 +40,7 @@ layout[1,1] = ['d_L']
 fig = plot_hists(dataset, layout, figsize=(10, 8), bins=10)
 plt.show()
 ```
-## Requirements
-This code relies on glasflow.nflows for its implementation of normalizing flows...
+## Main requirements
+This code is built on **PyTorch** and relies on **glasflow.nflows** for its implementation of normalizing flows.
+Generating the datasets requires various gw related libraries, so one of the **igwn conda environments** is advised as a 
+starting point. Requirements not yet incorporated to 'setup.py', pycbc required re-installation.
