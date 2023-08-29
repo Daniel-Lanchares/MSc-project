@@ -3,4 +3,7 @@ dist/
 CBC_estimator.egg-info/
 .eggs/
 .idea/*
-*.pyc
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
