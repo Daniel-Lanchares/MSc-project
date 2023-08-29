@@ -12,66 +12,73 @@ from torchvision import models
 from CBC_estimator.training.train_utils import QTDataset, train_model
 from CBC_estimator.nn.net_utils import create_feature_extractor
 from CBC_estimator.nn.flow_utils import create_flow # Only testing the ResNet for now
-from CBC_estimator.dataset.dataset_utils import convert_dataset, image
+from CBC_estimator.conversion.conversion_utils import convert_dataset, make_image
 
-dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
-trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')
-trainset_dir = Path('../Trainsets')
-# print(dataset_dir)
-# print(trainset_dir.exists()) # pathhlib says it exists, torch.save() claims otherwise
+# dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
+# trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')
+# trainset_dir = Path('../Trainsets')
+files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')
+rawdat_dir = files_dir / 'Raw Datasets'
+trainset_dir = files_dir / 'Trainsets'
+train_dir = files_dir / 'Traindir'
+
 
 params_list = [
     'chirp_mass',
-    'chi_eff',
-    'd_L',
-    'NAP'
+    # 'chi_eff',
+    # 'd_L',
+    # 'NAP'
     ]
 
 dataset = []
-for seed in range(7):
-    dataset = np.concatenate((dataset, torch.load(dataset_dir/f'Raw_dataset_{seed}.pt')))
+for seed in range(2):
+    dataset = np.concatenate((dataset, torch.load(rawdat_dir/f'Raw_Dataset_{seed}.pt')))
     print(f'Loaded Raw_dataset_{seed}.pt')
 
 trainset = convert_dataset(dataset, params_list)#trainset_dir/'4_parameter_trainset.pt')
 
+del dataset
+
 # All parameters are merelly examples
 train_config = {
     'num_epochs': 20,
-    'checkpoint_every_x_epochs': 5, # Not yet implemented
+    'checkpoint_every_x_epochs': 5,  # Not yet implemented
     'batch_size': 64,
-    'optim_type': 'SGD', # 'Adam'
-    'learning_rate': 0.005, #Study how to change it mid-training
+    'optim_type': 'SGD',  # 'Adam'
+    'learning_rate': 0.005,  # Study how to change it mid-training
     }
 
-net_config = { # This are to create a net from scratch
+net_config = {  # These are to create a net from scratch
     'input_channels': 3,
-    'output_length': 4, #4 when not testing the flow 
+    'output_length': 4,  # 4 when not testing the flow
     'blocks_sizes': np.array([64, 128, 256, 512]),
     'deepths': [2, 2, 2, 2]
     }
-extractor_config = { # This are in substitution of the previous
-                     # Both are shown at once merely as an example
-    'n_features': 4,
+extractor_config = {  # These are in substitution of the previous
+                      # Both are shown at once merely as an example
+    'n_features': 1024,
     'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
     }
-flow_config = { # As it is now, it explodes instantly
+flow_config = {  # As it is now, it explodes instantly
     'input_dim': len(params_list),
     'context_dim': extractor_config['n_features'],
     'num_flow_steps': 5,
-    'base_transform_kwargs': { #This I will study in more detail #TODO
-        'hidden_dim': 64,
+    'base_transform_kwargs': {  # These I will study in more detail #TODO
+        'hidden_dim': 4,
         'num_transform_blocks': 2,
-        'num_bins': 8
+        # 'num_bins': 8
         },
     }
 
-pre_process = models.ResNet18_Weights.DEFAULT.transforms(antialias=True) # True for internal compatibility reasons
+
+pre_process = models.ResNet18_Weights.DEFAULT.transforms(antialias=True)  # True for internal compatibility reasons
 # print(pre_process)
 
-processed_trainset = (pre_process(trainset[0]), trainset[1]) # May implement directly in convert_dataset
+processed_trainset = (pre_process(trainset[0]), trainset[1])  # May implement directly in convert_dataset
+print('preprocessed_trainset')
 
-del dataset
-del trainset # The least RAM used the better
+
+del trainset  # The least RAM used the better
 
 # Test for prepocess (note that I did not correct the normalization, so it shows clipped)
 # n=0
@@ -82,9 +89,11 @@ del trainset # The least RAM used the better
 # ax2.imshow(image(processed_trainset[0][n]))
 # plt.show()
 
-traindir = 'training_test_3_(processed_data,lr=0.005)'
+traindir = train_dir / 'training_test_1_(processed_data,lr=0.01)'
 train_dataset = QTDataset(processed_trainset)
 train_dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
+
+del processed_trainset
 
 
 # model = EmbeddedFlow(net_kwargs=net_config, 
@@ -100,11 +109,12 @@ net = create_feature_extractor(**extractor_config)
 #         print(x.shape)
 #         print(net(x))
 
-# model = create_flow(emb_net=net, **flow_config)
 # print(model)
-model = net
+# model = net
 
-#print(model)
+model = create_flow(emb_net=net, **flow_config)
+
+# print(model)
 
 
 # Sanity check II
@@ -120,15 +130,16 @@ model = net
 epoch_data, loss_data = train_model(model, train_dataloader, traindir, train_config)
 
 
-#Average over batches: 1 loss per epoch
-epoch_data_avgd = epoch_data.reshape(20,-1).mean(axis=1)
-loss_data_avgd = loss_data.reshape(20,-1).mean(axis=1)
+# Average over batches: 1 loss per epoch
+epoch_data_avgd = epoch_data.reshape(20, -1).mean(axis=1)
+loss_data_avgd = loss_data.reshape(20, -1).mean(axis=1)
 
 plt.figure(figsize=(10, 8))
 plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
 plt.xlabel('Epoch Number')
 plt.ylabel('Mean Squared Error')
 plt.title('Mean Squared Error (avgd per epoch)')
+plt.savefig(train_dir/'loss_plot.png', format='png')
 plt.show()
 
 # model.load_state_dict(torch.load(Path(traindir)/'Model_state_dict.pt'))

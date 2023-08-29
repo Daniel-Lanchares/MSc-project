@@ -11,6 +11,7 @@ import torch.nn as nn
 from functools import partial
 from collections import OrderedDict
 
+
 # PyTorch's 2D Convolutional layer but with automatic padding
 class Conv2dAuto(nn.Conv2d):
     def __init__(self, *args, **kwargs):

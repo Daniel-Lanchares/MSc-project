@@ -7,12 +7,10 @@ import matplotlib.pyplot as plt
 
 from pprint import pprint
 
-
-
 # Basic example for dataset conversion and study
 
 
-from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists, image
+from CBC_estimator.conversion.conversion_utils import convert_dataset, plot_hists, plot_images, make_image
 
 # This way I can have Toy, test and proper datasets in separate folders
 files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')
@@ -39,15 +37,29 @@ for seed in range(1):
 
 # print(np.array([data['id'] for data in dataset]))
 print(f'Dataset size: {len(dataset)}\n')
-#pprint(dataset[0]['parameters'])
+
+
+layout = np.array([i for i in range(30)])
+layout.shape = (5, 6)
+
 
 trainset = convert_dataset(dataset, params_list)
 
-#TODO Make funtion in dataset_utils that plots the image of an iterable of indices
-# n = 4
-# pprint(dataset[n]['SNR'])
-# plt.imshow(image(dataset[n]))
-# plt.show()
+# This discussion could be used to visualise all images on a dataset through pages
+# https://stackoverflow.com/questions/33139496/how-to-plot-several-graphs-and-make-use-of-the-navigation-button-in-matplotlib
+
+fig = plot_images(dataset, layout, figsize=(14, 10),
+                  title_maker=lambda x: f'{x["id"]}')
+fig.suptitle('Q-Transform images (RGB = (L1, H1, V1))')
+plt.tight_layout()
+
+layout = np.array([30+i for i in range(30)])
+layout.shape = (5, 6)
+fig2 = plot_images(dataset, layout, figsize=(14, 10),
+                   title_maker=lambda x: f'{x["id"]}')
+fig2.suptitle('Q-Transform images (RGB = (L1, H1, V1))')
+plt.tight_layout()
+plt.show()
 
 # print('Raw dataset')
 # pprint(dataset[0])
@@ -60,11 +72,11 @@ trainset = convert_dataset(dataset, params_list)
 
 # Add funtion to dataset_utils that does this more pretty (get_unit(parameter), etc...)
 # plt.hist(extract_parameters(dataset, ['mass_1','mass_2']))
-layout = np.ones((2,2), dtype=object)
-layout[0,0] = ['chi_eff']#['mass_1', 'mass_2']
-layout[1,0] = ['chirp_mass']
-layout[0,1] = ['NAP']
-layout[1,1] = ['d_L']
+layout = np.ones((2, 2), dtype=object)
+layout[0, 0] = ['chi_eff']  # ['mass_1', 'mass_2']
+layout[1, 0] = ['chirp_mass']
+layout[0, 1] = ['NAP']
+layout[1, 1] = ['d_L']
 fig = plot_hists(dataset, layout, figsize=(10, 8), bins=10)
 plt.show()
 

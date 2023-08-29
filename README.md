@@ -2,7 +2,7 @@
 
 Implementation of an NPE approach to gravitational wave parameter estimation through the use of normalizing flows.
 Once complete it will allow the user to train basic machine learning models to perform a regression task on a CBC signal based on its q-transform.
-Due to dependence on LALSuite algorithms it is restricted to Linux/MacOS operating systems
+Due to dependence on LALSuite algorithms it is restricted to Linux/macOS operating systems
 
 ## Usage
 The process is meant to have four stages:
@@ -16,7 +16,7 @@ The process is meant to have four stages:
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from CBC_estimator.dataset.dataset_utils import convert_dataset, plot_hists
+from CBC_estimator.conversion.conversion_utils import convert_dataset, plot_hists
 
 dataset = torch.load('path/to/dataset')
 
@@ -26,17 +26,17 @@ params_list = [
     'chi_eff',
     'd_L',
     'NAP'
-    ]
+]
 
 # Create a trainset to train on this parameters
 trainset = convert_dataset(dataset, params_list)
 
 # Or plot the population for another set of parameters by passing a layout
-layout = np.ones((2,2), dtype=object)
-layout[0,0] = ['chi_eff']
-layout[1,0] = ['chi_p']
-layout[0,1] = ['mass_1', 'mass_2']
-layout[1,1] = ['d_L']
+layout = np.ones((2, 2), dtype=object)
+layout[0, 0] = ['chi_eff']
+layout[1, 0] = ['chi_p']
+layout[0, 1] = ['mass_1', 'mass_2']
+layout[1, 1] = ['d_L']
 fig = plot_hists(dataset, layout, figsize=(10, 8), bins=10)
 plt.show()
 ```
