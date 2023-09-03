@@ -16,7 +16,7 @@ The process is meant to have four stages:
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
-from CBC_estimator.conversion.conversion_utils import convert_dataset, plot_hists
+from CBC_estimator.core.conversion_utils import convert_dataset, plot_hists
 
 dataset = torch.load('path/to/dataset')
 

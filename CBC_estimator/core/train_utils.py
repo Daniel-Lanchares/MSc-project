@@ -1,12 +1,6 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul  4 18:24:05 2023
-
-@author: danie
-"""
 import os
 from pathlib import Path
-
+import pandas as pd
 import numpy as np
 
 import torch
@@ -19,13 +13,36 @@ opt_dict = {'SGD': SGD, 'Adam': Adam}
 loss_dict = {'MSE': nn.MSELoss, 'CE': nn.CrossEntropyLoss}
 
 
-class QTDataset(Dataset):
+class RawSet:  # TODO
+    """
+    Iterable of OrderedDicts containing fully described events (injections in GW)
+    Could be a subclass of list...
+    """
+    pass
 
-    def __init__(self, dataset):
+
+class TrainSet(pd.DataFrame):  # TODO
+    """
+    Hopefully a subclass of pd.DataFrame with images and labels indexed by name
+    """
+    @property
+    def _constructor(self):
+        return TrainSet
+
+
+class QTDataset(Dataset):
+    """
+    Object to be fed to the DataLoader. It implements basic functionality of feeding system
+    and ensures that the model is given a torch.Tensor and not a DataFrame or an array.
+    """
+    def __init__(self, trainset: TrainSet | str | Path):
         # dataset can either be a path to a dataset or the dataset itself
-        if isinstance(dataset, str) or isinstance(dataset, Path):
-            dataset = torch.load(dataset)
-        self.x, self.y = dataset
+        if isinstance(trainset, str | Path):
+            trainset = torch.load(trainset)
+
+        labels = torch.cat([torch.reshape(tens, (1, len(tens))) for tens in trainset['labels']])
+
+        self.x, self.y = (torch.cat(list(trainset.values[:, 0])), labels)
 
     def __len__(self):
         return self.x.shape[0]  # Number of images
@@ -42,7 +59,7 @@ def train_model(model, dataloader, outdir, train_config):
     outdir = Path(outdir)
 
     n_epochs = train_config['num_epochs']
-    chckpt = train_config['checkpoint_every_x_epochs']
+    checkpt = train_config['checkpoint_every_x_epochs']
     lr = train_config['learning_rate']
     opt = opt_dict[train_config['optim_type']](model.parameters(), lr)
 
@@ -65,5 +82,6 @@ def train_model(model, dataloader, outdir, train_config):
             epochs.append(epoch + i / N)
             losses.append(loss_value.item())
 
-    torch.save(model.state_dict(), outdir / 'Model_state_dict.pt')
+    # torch.save(model.state_dict(), outdir / 'Model_state_dict.pt')
+    # TODO: Save loss plots directly to the outdir and have epochs and losses as attributes
     return np.array(epochs), np.array(losses)

@@ -1,23 +1,8 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul  4 18:18:47 2023
-
-@author: danie
-"""
-
-import torch
 import torch.nn as nn
-import torch.nn.functional as F
 
 from torchvision import models
 
-import numpy as np
-
-from functools import partial
-from dataclasses import dataclass
-from collections import OrderedDict
-
-from .net_blocks import ResNetBasicBlock
+from CBC_estimator.core.net_blocks import ResNetBasicBlock
 
 '''
 This function should create a XResNet (currently a normal ResNet)

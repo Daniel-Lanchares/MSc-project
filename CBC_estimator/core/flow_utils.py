@@ -1,15 +1,4 @@
-# -*- coding: utf-8 -*-
-"""
-Created on Tue Jul  4 18:18:11 2023
-
-@author: danie
-"""
-import torch
-import torch.nn as nn
-
-import glasflow.nflows as nflows
-import glasflow.nflows.nn.nets as nflows_nets
-
+from typing import Callable
 from glasflow.nflows import distributions, flows, transforms
 
 
@@ -17,7 +6,9 @@ def create_flow(  # Adapted from DINGO
     input_dim: int,
     context_dim: int,
     num_flow_steps: int,
-    base_transform_kwargs: dict,
+    base_transform: Callable, middle_transform: Callable,
+    base_transform_kwargs: dict, middle_transform_kwargs: dict,
+    final_transform: Callable, final_transform_kwargs: dict,
     emb_net=None
 ):
     """
@@ -32,7 +23,7 @@ def create_flow(  # Adapted from DINGO
     :param num_flow_steps: int,
         number of sequential transforms
     :param base_transform_kwargs: dict,
-        hyperparameters for transform steps
+        hyperparameters for the transform repeated in every step
     :param emb_net: torch.nn.Module, None
         Embedding net for the flow
 
@@ -43,25 +34,35 @@ def create_flow(  # Adapted from DINGO
     # We will always start from a N(0, 1)
     distribution = distributions.StandardNormal(shape=(input_dim,))
     transform = create_transform(
-        num_flow_steps, input_dim, context_dim, base_transform_kwargs
+        num_flow_steps, input_dim, context_dim,
+        base_transform, middle_transform,
+        base_transform_kwargs, middle_transform_kwargs,
+        final_transform, final_transform_kwargs
     )
     flow = flows.Flow(transform, distribution, embedding_net=emb_net)
 
-    # Store hyperparameters. This is for reconstructing model when loading from
-    # saved file.
-
-    flow.model_hyperparams = {
-        "input_dim": input_dim,
-        "num_flow_steps": num_flow_steps,
-        "context_dim": context_dim,
-        "base_transform_kwargs": base_transform_kwargs,
-    }
+    # # Store hyperparameters. This is for reconstructing model when loading from
+    # # saved file.
+    #
+    # flow.model_hyperparams = {
+    #     'input_dim': input_dim,
+    #     'num_flow_steps': num_flow_steps,
+    #     'context_dim': context_dim,
+    #
+    #     'base_transform': base_transform,
+    #     'base_transform_kwargs': base_transform_kwargs,
+    #     'final_transform': final_transform,
+    #     'final_transform_kwargs': final_transform_kwargs,
+    # }
 
     return flow
 
 
 def create_transform(
-    num_flow_steps: int, param_dim: int, context_dim: int, base_transform_kwargs: dict
+    num_flow_steps: int, param_dim: int, context_dim: int,
+        base_transform: Callable , middle_transform: Callable,
+        base_transform_kwargs: dict, middle_transform_kwargs: dict,
+        final_transform: Callable, final_transform_kwargs: dict
 ):
     """
     Right now straight from DINGO. Will adapt as needed
@@ -89,24 +90,20 @@ def create_transform(
     """
 
     transform = transforms.CompositeTransform(
-        [
-            transforms.CompositeTransform(
-                [
-                    create_linear_transform(param_dim),
-                    create_base_transform(
+        [transforms.CompositeTransform([
+                    middle_transform(param_dim, **middle_transform_kwargs),
+                    base_transform(
                         i, param_dim, context_dim=context_dim, 
-                        **base_transform_kwargs),
-                ]
+                        **base_transform_kwargs), ]
             )
-            for i in range(num_flow_steps)
-        ]
-        + [create_linear_transform(param_dim)]
+            for i in range(num_flow_steps)]
+        + [final_transform(param_dim, **final_transform_kwargs)]
     )
 
     return transform
 
 
-def create_linear_transform(param_dim: int):
+def random_perm_and_lulinear(param_dim: int):
     """
     Create the composite linear transform PLU.
 
@@ -122,7 +119,7 @@ def create_linear_transform(param_dim: int):
         ])
 
 
-def create_base_transform(i: int, param_dim: int, context_dim: int, hidden_dim: int, num_transform_blocks: int,):
+def mask_affine_autoreg(i: int, param_dim: int, context_dim: int, hidden_dim: int, num_transform_blocks: int,):
     return transforms.CompositeTransform([
         transforms.ReversePermutation(features=param_dim),
         transforms.MaskedAffineAutoregressiveTransform(features=param_dim,
@@ -238,3 +235,6 @@ def create_base_transform(i: int, param_dim: int, context_dim: int, hidden_dim: 
 #
 #     else:
 #         raise ValueError
+
+
+transform_ref = {f.__name__: f for f in [random_perm_and_lulinear, mask_affine_autoreg]}

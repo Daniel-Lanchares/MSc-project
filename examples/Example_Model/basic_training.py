@@ -9,10 +9,10 @@ from torch.utils.data import DataLoader
 from torchvision import models
 
 
-from CBC_estimator.training.train_utils import QTDataset, train_model
-from CBC_estimator.nn.net_utils import create_feature_extractor
-from CBC_estimator.nn.flow_utils import create_flow # Only testing the ResNet for now
-from CBC_estimator.conversion.conversion_utils import convert_dataset, make_image
+from CBC_estimator.core.train_utils import QTDataset, train_model
+from CBC_estimator.core.net_utils import create_feature_extractor
+from CBC_estimator.core.flow_utils import create_flow
+from CBC_estimator.core.conversion_utils import convert_dataset
 
 # dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
 # trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')
@@ -89,7 +89,7 @@ del trainset  # The least RAM used the better
 # ax2.imshow(image(processed_trainset[0][n]))
 # plt.show()
 
-traindir = train_dir / 'training_test_1_(processed_data,lr=0.01)'
+traindir = train_dir / 'training_test_3_(trained over 2,lr=0.005)'
 train_dataset = QTDataset(processed_trainset)
 train_dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
 
@@ -112,7 +112,10 @@ net = create_feature_extractor(**extractor_config)
 # print(model)
 # model = net
 
+traindir0 = train_dir / 'training_test_2_(trained over 0,lr=0.05)'
+
 model = create_flow(emb_net=net, **flow_config)
+model.load_state_dict(torch.load(traindir0 / 'Model_state_dict.pt'))
 
 # print(model)
 
@@ -139,7 +142,7 @@ plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
 plt.xlabel('Epoch Number')
 plt.ylabel('Mean Squared Error')
 plt.title('Mean Squared Error (avgd per epoch)')
-plt.savefig(train_dir/'loss_plot.png', format='png')
+plt.savefig(traindir/'loss_plot.png', format='png')
 plt.show()
 
 # model.load_state_dict(torch.load(Path(traindir)/'Model_state_dict.pt'))

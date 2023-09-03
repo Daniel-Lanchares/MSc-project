@@ -2,10 +2,12 @@ import matplotlib.pyplot as plt
 from pprint import pprint
 from pathlib import Path
 import numpy as np
+import pandas as pd
 
 import torch
 
-# from torch.utils.data import Dataset, DataLoader
+from .common_utils import check_format
+from .train_utils import TrainSet
 
 '''
 In this file the raw dataset (list of dictionaries) is transformed
@@ -38,24 +40,6 @@ def make_image(inject: dict | np.ndarray):
     else:
         image_arr = np.dstack((inject[0], inject[1], inject[2]))
     return image_arr
-
-
-def check_format(dataset):
-    """
-    Allows functions to be given either a dataset tensor or its path.
-
-    Parameters
-    ----------
-    dataset : str, pathlib.Path or torch.tensor.
-
-    Returns
-    -------
-    dataset : torch.tensor.
-
-    """
-    if isinstance(dataset, (str, Path)):
-        dataset = torch.load(dataset)
-    return dataset
 
 
 # Parameter redefinitions.
@@ -181,7 +165,9 @@ alias_dict = {  # MANY MISSING #TODO
 
 # Load Raw_dataset.pt
 
-def convert_dataset(dataset, params_list, outpath=None, debug=None):
+def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
+                    params_list: list | np.ndarray | torch.Tensor,
+                    outpath: str | Path = None):
     """
 
     Inputs a raw dataset (list of dictionaries) and outputs a tuple of arrays
@@ -196,8 +182,6 @@ def convert_dataset(dataset, params_list, outpath=None, debug=None):
         If None file will not be saved
     params_list : list.
         List of parameters to train on.
-    debug : list, optional.
-        debuging options. The default is [].
 
     Returns
     -------
@@ -206,11 +190,9 @@ def convert_dataset(dataset, params_list, outpath=None, debug=None):
 
     """
 
-    if debug is None:
-        debug = []
     dataset = check_format(dataset)
 
-    image_list, label_list = [], []
+    image_list, label_list, name_list = [], [], []
 
     for inj in dataset:
         params_dict = inj['parameters']
@@ -229,20 +211,10 @@ def convert_dataset(dataset, params_list, outpath=None, debug=None):
 
         image_list.append(image_arr)
         label_list.append(np.array(labels))
+        name_list.append(inj['id'])
 
-        if 'dicts' in debug:
-            inj_id = inj['id']
-            print(f'Injection No.{inj_id}')
-            print('Full parameters')
-            pprint(params_dict)
-            print()
-            print('Selected parameters')
-            pprint(new_params_dict)
-            print('\n' * 2)
-
-    # Tough a roundabout, tensor(array(list)) is the recomended (faster) way
-    converted_dataset = (torch.tensor(np.array(image_list)),
-                         torch.tensor(np.array(label_list)))
+    # Tough a roundabout, tensor(array(list)) is the recommended (faster) way
+    converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list)
     if outpath is not None:
         torch.save(converted_dataset, outpath)
     return converted_dataset

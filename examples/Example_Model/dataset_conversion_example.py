@@ -5,12 +5,10 @@ from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 
-from pprint import pprint
-
 # Basic example for dataset conversion and study
 
 
-from CBC_estimator.conversion.conversion_utils import convert_dataset, plot_hists, plot_images, make_image
+from CBC_estimator.core.conversion_utils import convert_dataset, plot_hists, plot_images
 
 # This way I can have Toy, test and proper datasets in separate folders
 files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')
