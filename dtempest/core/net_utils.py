@@ -2,7 +2,7 @@ import torch.nn as nn
 
 from torchvision import models
 
-from CBC_estimator.core.net_blocks import ResNetBasicBlock
+from dtempest.core.net_blocks import ResNetBasicBlock
 
 '''
 This function should create a XResNet (currently a normal ResNet)

@@ -5,10 +5,12 @@ from pathlib import Path
 from copy import copy
 from typing import Callable
 
+from tqdm import tqdm
+
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
-from .sampling import SampleDict
+from .sampling import SampleDict, SampleSet
 from .train_utils import train_model, TrainSet, QTDataset, DataLoader
 
 
@@ -20,6 +22,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                  net_config: dict = None,
                  train_config: dict = None,
                  workdir: str | Path = Path(''),
+                 name: str = '',
                  mode: str = 'extractor+flow',
                  preprocess: Callable = identity,
                  ):
@@ -47,6 +50,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         """
         self.param_list = param_list
         self.workdir = Path(workdir)
+        self.name = name
 
         self.train_config = train_config
         self.net_config = net_config
@@ -80,6 +84,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
 
     def save_to_file(self, savefile: str | Path):
         metadata = {
+            'name': self.name,
             'param_list': self.param_list,
             'preprocess': self._preprocess,
             'mode': self.mode,
@@ -89,6 +94,9 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
             'flow_config': self.flow_config
         }
         torch.save((self.model.state_dict(), metadata), self.workdir / savefile)
+
+    def rename(self, new_name):
+        self.name = new_name
 
     def eval(self):
         self.model.eval()
@@ -129,8 +137,6 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         return trainset
 
     def train(self, trainset: TrainSet | str | Path, traindir, train_config, preprocess: bool = True):
-        # TODO: Pretty much everything, this is not how it will work
-        #  (will likely feed processed trainset, not dataloader)
         self.train_config = train_config
         trainset = check_format(trainset)
         if preprocess:
@@ -141,15 +147,15 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
 
         epoch, losses = train_model(self.model, dataloader, traindir, self.train_config)
 
-        epoch_data_avgd = epoch.reshape(20, -1).mean(axis=1)
-        loss_data_avgd = losses.reshape(20, -1).mean(axis=1)
+        epoch_data_avgd = epoch.reshape(train_config['num_epochs'], -1).mean(axis=1)
+        loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
 
         plt.figure(figsize=(10, 8))
         plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
         plt.xlabel('Epoch Number')
-        plt.ylabel('Mean Squared Error')
-        plt.title('Mean Squared Error (avgd per epoch)')
-        plt.savefig(traindir / 'loss_plot.png', format='png')
+        plt.ylabel('Log Probability')
+        plt.title('Log Probability (avgd per epoch)')
+        plt.savefig(traindir / f'loss_plot_{self.name}.png', format='png')
 
     def sample_dict(self,
                     num_samples: int,
@@ -169,5 +175,22 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                     sdict.truth[self.param_list[i]] = reference[i].item()
         return sdict
 
-    def sample_set(self, num_samples, data):
-        pass #TODO: Not only this, but also study how to name every image
+    def sample_set(self,
+                   num_samples: int,
+                   data: TrainSet,
+                   params: torch.Tensor = None,
+                   name: str = None,
+                   preprocess: bool = True):
+        if params is None:
+            params = self.param_list
+        sset = SampleSet(params, name)
+        with tqdm(total=len(data.index), desc=f'Creating SampleDict {name}', ncols=100) as p_bar:
+            for event in data.index:
+                sset[str(event)] = self.sample_dict(num_samples,
+                                                    data['images'][event],
+                                                    params,
+                                                    str(event),
+                                                    data['labels'][event],  # If real event: either None or other estimation
+                                                    preprocess)
+                p_bar.update(1)
+        return sset

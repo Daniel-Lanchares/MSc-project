@@ -33,8 +33,8 @@ def get_requirements(kind=None):
 
 
 setup(
-    name='CBC_estimator',
-    packages=find_packages(),  # include=['CBC_estimator'] might revert to explicit creation
+    name='dtempest',
+    packages=find_packages(),  # include=['dtempest'] might revert to explicit creation
     version='0.1.0',
     description='Implementation of an NPE approach to gravitational wave parameter estimation',
     author='Daniel Lanchares',

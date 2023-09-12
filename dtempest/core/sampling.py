@@ -5,9 +5,11 @@ import matplotlib.pyplot as plt
 from pprint import pprint
 from copy import deepcopy
 import torch
+from tqdm import tqdm
 
 from .common_utils import PrintStyle
 from .conversion_utils import get_param_alias, get_param_units
+from .train_utils import TrainSet
 
 # class SampleArray(np.ndarray):
 #     # read this, might be useful
@@ -73,6 +75,12 @@ class SampleDict(OrderedDict):
         if same and 'label' not in kwargs:
             kwargs['label'] = self.name
 
+        if 'title' not in kwargs:
+            fig.suptitle(f'{self.name} histograms')
+        else:
+            fig.suptitle(kwargs['title'])
+            del kwargs['title']
+
         layout = param_array.shape
         flat_array = param_array.flatten()
         for i in range(len(flat_array)):
@@ -80,7 +88,6 @@ class SampleDict(OrderedDict):
             fig = self.plot_1d_hist(parameter, fig=fig, figsize=figsize, quantiles=quantiles,
                                     plot_layout=(*layout, i + 1), average=average, same=same,
                                     **kwargs)
-        fig.suptitle(f'{self.name} histograms')
         plt.tight_layout()
         return fig
 
@@ -205,31 +212,119 @@ class SampleDict(OrderedDict):
             fmt(summary.median), fmt(summary.minus), fmt(summary.plus))
         return summary
 
-    def accuracy_test(self, total: bool = False):
+    def accuracy_test(self, sqrt: bool = False):
         if len(self.truth) == 0:
             print(f'{PrintStyle.red}{type(self).__name__} has no truth dictionary (reference values) to compare to.')
             print(f'Accuracy test aborted.{PrintStyle.reset}')
             return
-        if not total:
-            error = pd.Series(index=self.parameters, name=f'accuracy test error from {self.name}')
-            for param in self.parameters:
-                avg = self.average(self[param]).item()
-                ref = self.truth[param]
+        error = MSESeries(index=self.parameters, name=f'MSE from {self.name}', sqrt=sqrt)
+        for param in self.parameters:
+            avg = self.average(self[param]).item()
+            ref = self.truth[param]
+            if sqrt:
+                error[param] = np.abs(avg - ref)
+            else:
                 error[param] = (avg-ref)**2
-            return error
+        return error
 
+
+class SampleSet(SampleDict):
+    def accuracy_test(self, sqrt: bool = False):
+        # data = {event: sdict.accuracy_test(sqrt) for event, sdict in self.items()}
+        data = OrderedDict()
+        with tqdm(total=len(self.keys()), desc=f'Running accuracy test for {self.name}', ncols=100) as p_bar:
+            for event, sdict in self.items():
+                data[event] = sdict.accuracy_test(sqrt)
+                p_bar.update(1)
+
+        return MSEDataFrame(data=data, name=f'MSE from {self.name}', sqrt=sqrt)
+
+
+class MSESeries:
+    """
+    Wrapper class for pandas Series. Stores Mean Squared Error for a SampleDict
+    """
+    def __init__(self, name: str = None, sqrt: bool = False, *args, **kwargs):
+        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.Series):
+            self._df = kwargs['data']
         else:
-            error = 0
-            for param in self.parameters:
-                avg = self.average(self[param])
-                ref = self.truth[param]
-                error += (avg-ref)**2
-            return error/len(self.parameters)
+            self._df = pd.Series(name=name, *args, **kwargs)
+        if name is None:
+            name = type(self).__name__
+        self.name = name
+        self.sqrt = sqrt
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._df, attr)
+
+    def __getitem__(self, item):
+        if isinstance(self._df[item], pd.Series):
+            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        return self._df[item]
+
+    def __setitem__(self, item, data):
+        self._df[item] = data
+
+    def __repr__(self):
+        temp_df = self._df.to_frame(name=self.name)
+        temp_df['units'] = [get_param_units(param)[1:-1] for param in self._df.index]
+        if not self.sqrt:
+            temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
+                                else temp_df['units'][param] + r'^2'
+                                for param in self._df.index]
+        return temp_df.to_markdown()
+
+
+class MSEDataFrame:
+    """
+    Wrapper class for pandas DataFrame. Stores Mean Squared Error for a SampleSet
+    """
+    def __init__(self, name: str = None, sqrt: bool = False, *args, **kwargs):
+        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.DataFrame):
+            self._df = kwargs['data']
+        else:
+            self._df = pd.DataFrame(*args, **kwargs)
+        if name is None:
+            name = type(self).__name__
+        self.name = name
+        self.sqrt = sqrt
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._df, attr)
+
+    def __getitem__(self, item):
+        if isinstance(self._df[item], pd.Series):
+            return MSESeries(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        if isinstance(self._df[item], pd.DataFrame):
+            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        return self._df[item]
+
+    def __setitem__(self, item, data):
+        self._df[item] = data
+
+    def __repr__(self):
+        return self._df.__repr__()
+    # def __repr__(self):
+    #     temp_df = self._df.to_frame()
+    #     temp_df['units'] = [get_param_units(param)[1:-1] for param in self._df.index]
+    #     if not self.sqrt:
+    #         temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
+    #                             else temp_df['units'][param] + r'^2'
+    #                             for param in self._df.index]
+    #     return temp_df.to_markdown()
+
+    def mean(self, *args, **kwargs):
+        # May resort to implement these one by one (at least the most useful)
+        return MSESeries(data=self._df.mean(*args, **kwargs), name=self.name, sqrt=self.sqrt)
 
 
 # Could be moved to a config object later
 def set_hist_style(style: str = 'bilby') -> dict:
-    available_styles = ['bilby',]
+    available_styles = ['bilby', ]
     if style == 'bilby':
         return {
             # For plt.hist

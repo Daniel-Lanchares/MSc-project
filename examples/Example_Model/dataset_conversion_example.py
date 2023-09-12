@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 # Basic example for dataset conversion and study
 
 
-from CBC_estimator.core.conversion_utils import convert_dataset, plot_hists, plot_images
+from dtempest.core.conversion_utils import convert_dataset, plot_hists, plot_images
 
 # This way I can have Toy, test and proper datasets in separate folders
 files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')

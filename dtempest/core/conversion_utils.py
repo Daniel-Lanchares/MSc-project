@@ -167,7 +167,8 @@ alias_dict = {  # MANY MISSING #TODO
 
 def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
                     params_list: list | np.ndarray | torch.Tensor,
-                    outpath: str | Path = None):
+                    outpath: str | Path = None,
+                    name: str = None):
     """
 
     Inputs a raw dataset (list of dictionaries) and outputs a tuple of arrays
@@ -191,6 +192,8 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
     """
 
     dataset = check_format(dataset)
+    if name is None:
+        name = TrainSet.__name__
 
     image_list, label_list, name_list = [], [], []
 
@@ -214,7 +217,7 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
         name_list.append(inj['id'])
 
     # Tough a roundabout, tensor(array(list)) is the recommended (faster) way
-    converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list)
+    converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list, name=name)
     if outpath is not None:
         torch.save(converted_dataset, outpath)
     return converted_dataset

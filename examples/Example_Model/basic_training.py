@@ -9,10 +9,10 @@ from torch.utils.data import DataLoader
 from torchvision import models
 
 
-from CBC_estimator.core.train_utils import QTDataset, train_model
-from CBC_estimator.core.net_utils import create_feature_extractor
-from CBC_estimator.core.flow_utils import create_flow
-from CBC_estimator.core.conversion_utils import convert_dataset
+from dtempest.core.train_utils import QTDataset, train_model
+from dtempest.core.net_utils import create_feature_extractor
+from dtempest.core.flow_utils import create_flow
+from dtempest.core.conversion_utils import convert_dataset
 
 # dataset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/Datasets/11 parameters') # Right now set for aligned-spins
 # trainset_dir = Path('C:/Users/danie/OneDrive/Escritorio/Física/5º (Máster)/TFM/Scripts/MSc project/examples/Trainsets')

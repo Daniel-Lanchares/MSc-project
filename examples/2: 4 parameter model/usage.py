@@ -5,11 +5,11 @@ from pprint import pprint
 
 import torch
 from torchvision import models
-from CBC_estimator.core import Estimator
+from dtempest.core import Estimator
 
-from CBC_estimator.core.net_utils import create_feature_extractor
-from CBC_estimator.core.flow_utils import create_flow
-from CBC_estimator.core.conversion_utils import convert_dataset, plot_images
+from dtempest.core.net_utils import create_feature_extractor
+from dtempest.core.flow_utils import create_flow
+from dtempest.core.conversion_utils import convert_dataset, plot_images
 
 '''
 Right now this file is useless (outside of testing)

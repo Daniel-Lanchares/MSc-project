@@ -21,13 +21,46 @@ class RawSet:  # TODO
     pass
 
 
-class TrainSet(pd.DataFrame):  # TODO
+class TrainSet:
     """
-    Hopefully a subclass of pd.DataFrame with images and labels indexed by name
+    Wrapper class for pandas DataFrame. Allows me to name it.
+    When applying any funtion that returns a copy remember to recreate
+    the object (Array-like objects are not easily extended or subclassed)
     """
-    @property
-    def _constructor(self):
-        return TrainSet
+    def __init__(self, name: str = None, *args, **kwargs):
+
+        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.DataFrame):
+            self._df = kwargs['data']
+        else:
+            self._df = pd.DataFrame(*args, **kwargs)
+        if name is None:
+            name = type(self).__name__
+        self.name = name
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._df, attr)
+
+    def __getitem__(self, item):
+        if isinstance(self._df[item], pd.DataFrame):
+            return type(self)(data=self._df[item], name=self.name)
+        return self._df[item]
+
+    def __setitem__(self, item, data):
+        self._df[item] = data
+
+    def __repr__(self):
+        return self._df.__repr__()
+
+
+# class InternalFrame(pd.DataFrame):  # TODO
+#     """
+#     Hopefully a subclass of pd.DataFrame with images and labels indexed by name
+#     """
+#     @property
+#     def _constructor(self):
+#         return TrainSet
 
 
 class QTDataset(Dataset):
@@ -75,12 +108,17 @@ def train_model(model, dataloader, outdir, train_config):
             loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
             # L = nn.MSELoss()
             # loss_value = L(model(x), y.float())  # To test just the net -> Here lies the gradient issue
-            print(loss_value.item())
+            print(f'Epoch {epoch}, batch {i}: {loss_value.item():.4}')
             loss_value.backward()
             opt.step()
             # Store training data
             epochs.append(epoch + i / N)
             losses.append(loss_value.item())
+        temp_loss = np.array(losses).reshape(epoch + 1, -1).mean(axis=1)
+        if epoch > 0:
+            print(f'\nAverage: {temp_loss[-1]:.6}, Delta: {(temp_loss[-2]-temp_loss[-1]):.6}\n')
+        else:
+            print(f'\nAverage: {temp_loss[0]:.6}\n')
 
     # torch.save(model.state_dict(), outdir / 'Model_state_dict.pt')
     # TODO: Save loss plots directly to the outdir and have epochs and losses as attributes
