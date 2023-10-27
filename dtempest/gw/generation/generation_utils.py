@@ -110,3 +110,5 @@ def gwpy_filter(timeseries: TimeSeries, detector='L1'):
         notches = [filter_design.notch(line, timeseries.sample_rate) for line in (50, 100, 150)]
     zpk = filter_design.concatenate_zpks(*notches)
     return timeseries.filter(zpk, filtfilt=True)
+
+

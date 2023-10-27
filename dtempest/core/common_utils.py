@@ -49,3 +49,14 @@ def check_format(dataset):
     if isinstance(dataset, (str, Path)):
         dataset = torch.load(dataset)
     return dataset
+
+
+def get_missing_args(type_excep):
+    crumbs = type_excep.args[0].split(' ')
+    n_args = int(crumbs[2])
+
+    return [crumbs[-2*i+1][1:-1] for i in reversed(range(1, n_args+1))]
+
+def jargon_lookup():
+    global jargon
+    return jargon

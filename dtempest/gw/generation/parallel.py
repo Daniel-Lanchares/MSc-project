@@ -109,7 +109,8 @@ class Injector:
         # Noise strain timeseries
         for ifo in ('L1', 'H1', 'V1'):
             # Read noise from file, notch_filter and resample to 2048 Hz
-            strain_pre = TimeSeries.read(f'/home/daniel/Documentos/GitHub/MSc-files/Noise/ts-reference-{ifo}', format='hdf5')
+            strain_pre = TimeSeries.read(f'/home/daniel/Documentos/GitHub/MSc-files/Noise/ts-reference-{ifo}',
+                                         format='hdf5')
             strain_pre = gwpy_filter(strain_pre, ifo)
 
             self.strains[ifo] = resample_to_delta_t(highpass(strain_pre.to_pycbc(), 20.0), 1.0 / 2048).crop(2, 2)
@@ -292,3 +293,20 @@ def non_whiten(timeseries, psd_series, order=None):
     non_whiten_t_series = f_series.to_timeseries()
     non_whiten_t_series = non_whiten_t_series.highpass_fir(20, order).lowpass_fir(300, order)
     return non_whiten_t_series.crop(1, 1)
+
+
+def process_strain(strain_pre, ifo, window_inter):
+    # Read noise from file, notch_filter and resample to 2048 Hz
+    if not isinstance(strain_pre, TimeSeries):
+        strain_pre = TimeSeries.from_pycbc(strain_pre)
+    strain_pre = gwpy_filter(strain_pre, ifo)
+
+    strain = resample_to_delta_t(highpass(strain_pre.to_pycbc(), 20.0), 1.0 / 2048).crop(2, 2)
+
+    psd = get_psd(strain)
+    w_strain = TimeSeries.from_pycbc(whiten(strain, psd))
+    #q_inter = (T + self.config['q_interval'][0], T + self.config['q_interval'][1])  # Q-transform window
+    qtrans = w_strain.q_transform(outseg=window_inter, whiten=False,
+                                  frange=(20, 300), qrange=(4, 64))
+    image_channel = prepare_array(qtrans.real)
+    return np.array(image_channel)

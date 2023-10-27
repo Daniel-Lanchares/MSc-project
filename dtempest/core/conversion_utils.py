@@ -6,7 +6,7 @@ import pandas as pd
 
 import torch
 
-from .common_utils import check_format
+from .common_utils import check_format, get_missing_args
 from .train_utils import TrainSet
 
 '''
@@ -15,8 +15,19 @@ into a dataset compatible with PyTorch [[image0, labels0], ...]
 
 Here regression parameters are also chosen 
 '''
-# ['dicts',]
-debug = ['dicts']
+
+no_jargon = {
+    'image': 'image',
+    'R': 'R',
+    'G': 'G',
+    'B': 'B',
+
+    'param_pool': None,
+    'unit_dict': None,
+    'alias_dict': None,
+
+    'default_title_maker': None
+}
 
 
 # class CTDataset(Dataset):
@@ -28,137 +39,21 @@ debug = ['dicts']
 #     def __getitem__(self, ix): 
 #         return self.x[ix], self.y[ix]
 
-def make_image(inject: dict | np.ndarray):
+def make_image(data: dict | np.ndarray, jargon: dict = None):
     """
     Creates image array (compatible with plt.imshow()) 
     from injection's dictionary
     """
-    if isinstance(inject, dict):
-        image_arr = np.dstack((inject['q-transforms']['L1'],
-                               inject['q-transforms']['H1'],
-                               inject['q-transforms']['V1']))
+    if jargon is None:
+        jargon = no_jargon
+    if isinstance(data, dict):
+        image = data[jargon['image']]
+        image_arr = np.dstack((image[jargon['R']],
+                               image[jargon['G']],
+                               image[jargon['B']]))
     else:
-        image_arr = np.dstack((inject[0], inject[1], inject[2]))
+        image_arr = np.dstack((data[0], data[1], data[2]))
     return image_arr
-
-
-# Parameter redefinitions.
-# kwargs is used because we will input all base parameters to all functions
-
-def chirp_mass(mass_1, mass_2, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns chirp mass.
-    """
-    return pow(mass_1 * mass_2, 3 / 5) / pow(mass_1 + mass_2, 1 / 5)
-
-
-def mass_ratio(mass_1, mass_2, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns mass ratio.
-    """
-    return np.minimum(mass_1, mass_2) / np.maximum(mass_1, mass_2)
-
-
-def symmetric_mass_ratio(mass_1, mass_2, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns symmetric mass ratio.
-    """
-    q = mass_ratio(mass_1, mass_2)
-    return q / (1 + q ** 2)
-
-
-def chi_1(a_1, tilt_1=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns parallel component of
-    unit-less spin.
-
-    If tilt_1 isn't provided assumes aligned spin (might introduce anti-align
-    possibility with 50/50 chance of 0 or np.pi).
-    """
-    return a_1 * np.cos(tilt_1)
-
-
-def chi_2(a_2, tilt_2=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns parallel component of
-    unit-less spin.
-
-    If tilt_2 isn't provided assumes aligned spin (might introduce anti-align
-    possibility with 50/50 chance of 0 or np.pi).
-    """
-    return a_2 * np.cos(tilt_2)
-
-
-def chi_eff(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns effective spin.
-    """
-    chi1 = chi_1(a_1, tilt_1)
-    chi2 = chi_2(a_2, tilt_2)
-    return (mass_1 * chi1 + mass_2 * chi2) / (mass_1 + mass_2)
-
-
-def chi_1_in_plane(a_1, tilt_1=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns the perpendicular
-    component of unit-less spin.
-    """
-    return np.abs(a_1 * np.sin(tilt_1))
-
-
-def chi_2_in_plane(a_2, tilt_2=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns the perpendicular
-    component of unit-less spin.
-    """
-    return np.abs(a_2 * np.sin(tilt_2))
-
-
-def chi_p(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
-    """
-    Conversion function: Given 15 base parameters returns precession spin.
-    """
-    q = mass_ratio(mass_1, mass_2)
-    chi1_p = chi_1_in_plane(a_1, tilt_1)
-    chi2_p = chi_2_in_plane(a_2, tilt_2)
-    return np.maximum(chi1_p, q * (3 * q + 4) / (4 * q + 3) * chi2_p)
-
-
-redef_dict = {  # MANY MISSING (redshift) #TODO
-    'chirp_mass': chirp_mass,
-    'mass_ratio': mass_ratio,
-    'symmetric_mass_ratio': symmetric_mass_ratio,
-    'chi_eff': chi_eff,
-    'chi_p': chi_p,
-    'chi_1': chi_1,
-    'chi_2': chi_2,
-    'chi_1_in_plane': chi_1_in_plane,
-    'chi_2_in_plane': chi_2_in_plane,
-}
-
-unit_dict = {  # MANY MISSING #TODO
-    'mass_1': r'$M_{\odot}$',
-    'mass_2': r'$M_{\odot}$',
-    'chirp_mass': r'$M_{\odot}$',
-    'mass_ratio': r'$ø$',
-    'symetric_mass_ratio': r'$ø$',
-    'NAP': r'$ø$',
-    'chi_eff': r'$ø$',
-    'chi_p': r'$ø$',
-    'd_L': r'$Mpc$'
-}
-
-alias_dict = {  # MANY MISSING #TODO
-    'mass_1': r'$m_1$',
-    'mass_2': r'$m_2$',
-    'chirp_mass': r'$\mathcal{M}$',
-    'mass_ratio': r'$q$',
-    'symetric_mass_ratio': r'$\eta$',
-    'NAP': 'Network Antenna Pattern',
-    'chi_eff': r'$\chi_{eff}$',
-    'chi_p': r'$\chi_{p}$',
-    'd_L': r'$d_L$'
-}
 
 
 # Introduce more redefinition functions if needed
@@ -168,7 +63,7 @@ alias_dict = {  # MANY MISSING #TODO
 def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
                     params_list: list | np.ndarray | torch.Tensor,
                     outpath: str | Path = None,
-                    name: str = None):
+                    name: str = None, jargon: dict = None):
     """
 
     Inputs a raw dataset (list of dictionaries) and outputs a tuple of arrays
@@ -194,14 +89,19 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
     dataset = check_format(dataset)
     if name is None:
         name = TrainSet.__name__
+    if jargon is None:
+        raise RuntimeError('You have no jargon defined: '
+                           'To properly convert parameters a jargon["parameter_pool"] is required')
+    param_pool = jargon['param_pool']
 
     image_list, label_list, name_list = [], [], []
 
-    for inj in dataset:
-        params_dict = inj['parameters']
-        image_arr = np.array((inj['q-transforms']['L1'],
-                              inj['q-transforms']['H1'],
-                              inj['q-transforms']['V1']))  # image(inj)
+    for data in dataset:
+        params_dict = data['parameters']
+        image = data[jargon['image']]
+        image_arr = np.array((image[jargon['R']],  # Different shape from make_image
+                              image[jargon['G']],
+                              image[jargon['B']]))
 
         new_params_dict = {}
         labels = []  # same info as new_params_dict but in an ordered container
@@ -209,12 +109,12 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
             if param in params_dict:
                 new_params_dict[param] = params_dict[param]
             else:  # if not among the base params compute parameter from them
-                new_params_dict[param] = redef_dict[param](**params_dict)
+                new_params_dict[param] = calc_parameter(param, param_pool, params_dict)
             labels.append(new_params_dict[param])
 
         image_list.append(image_arr)
         label_list.append(np.array(labels))
-        name_list.append(inj['id'])
+        name_list.append(data['id'])
 
     # Tough a roundabout, tensor(array(list)) is the recommended (faster) way
     converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list, name=name)
@@ -223,11 +123,23 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
     return converted_dataset
 
 
-def extract_parameters(dataset, params_list):
+def calc_parameter(param, pool, params_dict):
+    try:
+        return pool[param](**params_dict)
+    except TypeError as error:
+        missing_args = get_missing_args(error)
+        missing_dict = {arg: calc_parameter(arg, pool, params_dict) for arg in missing_args}
+        return pool[param](**missing_dict, **params_dict)
+
+def extract_parameters(dataset, params_list, jargon: dict = None):
     """
     Extracts an array of specified parameters
     from a dataset (or its path).
     """
+    if jargon is None:
+        raise RuntimeError('You have no jargon defined: '
+                           'To properly convert parameters a jargon["parameter_pool"] is required')
+    param_pool = jargon['param_pool']
 
     dataset = check_format(dataset)
 
@@ -242,49 +154,37 @@ def extract_parameters(dataset, params_list):
             if param in params_dict:
                 new_params_dict[param] = params_dict[param]
             else:  # if not among the base params compute parameter from them
-                new_params_dict[param] = redef_dict[param](**params_dict)
+                new_params_dict[param] = param_pool[param](**params_dict)
             labels.append(new_params_dict[param])
 
         label_list.append(np.array(labels))
     return np.array(label_list)
 
 
-def extract_SNR(dataset, detector_list):
-    """
-    Extracts an array of SNR peaks of specified
-    detectors from a dataset (or its path).
-    """
-
-    dataset = check_format(dataset)
-
-    SNR_list = []
-
-    for inj in dataset:
-        SNR_dict = inj['SNR']
-
-        for ifo in detector_list:
-            if ifo in SNR_dict:
-                SNR_list.append(SNR_dict[ifo])
-
-
-def get_param_alias(parameter):
+def get_param_alias(parameter, jargon: dict = None):
     """
     Returns alias of given parameter. Used for plotting.
     """
+    if jargon is None:
+        raise RuntimeError('You have no jargon defined: '
+                           'To properly convert parameters a jargon["alias_dict"] is required')
     try:
-        alias = alias_dict[parameter]
+        alias = jargon['alias_dict'][parameter]
     except KeyError:
         print('Parameter misspelled or alias not yet implemented')
         alias = 'unknown alias'
     return alias
 
 
-def get_param_units(parameter):
+def get_param_units(parameter, jargon: dict = None):
     """
     Returns units of given parameter. Used for plotting.
     """
+    if jargon is None:
+        raise RuntimeError('You have no jargon defined: '
+                           'To properly convert parameters a jargon["unit_dict"] is required')
     try:
-        unit = unit_dict[parameter]
+        unit = jargon['unit_dict'][parameter]
     except KeyError:
         print('Parameter misspelled or unit not yet implemented')
         unit = 'unknown unit'
@@ -292,7 +192,8 @@ def get_param_units(parameter):
 
 
 def plot_hist(dataset, params_list, fig=None, figsize=None,
-              plot_layout=(1, 1, 1), *hist_args, **hist_kwargs):
+              plot_layout=(1, 1, 1), jargon: dict = None,
+              *hist_args, **hist_kwargs,):
     """
     Plots a histogram of a given parameter list on a single subplot
 
@@ -330,18 +231,18 @@ def plot_hist(dataset, params_list, fig=None, figsize=None,
     ax = fig.add_subplot(*plot_layout)
     ax.hist(data, *hist_args, **hist_kwargs)
     # Study multiple label for lists, probably useless though
-    ax.set_xlabel(f'{get_param_alias(params_list[0])} ({get_param_units(params_list[0])})')
+    ax.set_xlabel(f'{get_param_alias(params_list[0], jargon)} ({get_param_units(params_list[0], jargon)})')
     # Do the same for set_title ?
     names = ''
     for name in params_list:
-        names += get_param_alias(name) + ', '
+        names += get_param_alias(name, jargon) + ', '
     names = names[:-2]
     ax.set_title(f'{names} histogram')
     return fig
 
 
 def plot_hists(dataset, param_array: np.ndarray, fig=None, figsize=None,
-               *hist_args, **hist_kwargs):
+               jargon: dict = None, *hist_args, **hist_kwargs):
     """
     Plots histograms of the given parameter array on one or more subplots
 
@@ -375,20 +276,20 @@ def plot_hists(dataset, param_array: np.ndarray, fig=None, figsize=None,
     layout = param_array.shape
     flat_array = param_array.flatten()
     for i in range(len(flat_array)):
-        fig = plot_hist(dataset, flat_array[i], fig=fig, figsize=figsize,
+        fig = plot_hist(dataset, flat_array[i], fig=fig, figsize=figsize, jargon=jargon,
                         plot_layout=(*layout, i + 1), *hist_args, **hist_kwargs)
     plt.tight_layout()
     return fig
 
 
-def plot_image(injection, fig=None, figsize=None, title_maker=None,
+def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = None,
                plot_layout=(1, 1, 1), *imshow_args, **imshow_kwargs):
     """
         Plots a histogram of a given parameter list on a single subplot
 
         Parameters
         ----------
-        injection : dict
+        data : dict
             element of the Raw_dataset.
         fig : matplotlib.pyplot.figure, optional
             Matplotlib.pyplot figure to be plotted on. Especially useful to paint
@@ -411,23 +312,26 @@ def plot_image(injection, fig=None, figsize=None, title_maker=None,
             updated figure with the image now plotted.
 
         """
+    if jargon is None:
+        raise RuntimeError('You have no jargon defined: '
+                           'To properly plot images a jargon["default_title_maker"] is required')
 
     if fig is None:
         fig = plt.figure(figsize=figsize)
 
-    image = make_image(injection)
+    image = make_image(data)
 
     ax = fig.add_subplot(*plot_layout)
     ax.imshow(image, *imshow_args, **imshow_kwargs)
     if title_maker is None:
-        ax.set_title(f'{injection["id"]} Q-Transform image\n(RGB = (L1, H1, V1))')
+        ax.set_title(jargon['default_title_maker'](data))
     else:
-        ax.set_title(title_maker(injection))
+        ax.set_title(title_maker(data))
     return fig
 
 
 def plot_images(dataset, index_array: np.ndarray, fig=None, figsize=None,
-                title_maker=None, *imshow_args, **imshow_kwargs):
+                title_maker=None, jargon: dict = None, *imshow_args, **imshow_kwargs):
     """
         Plots histograms of the given parameter array on one or more subplots
 
@@ -464,7 +368,7 @@ def plot_images(dataset, index_array: np.ndarray, fig=None, figsize=None,
     layout = index_array.shape
     flat_array = index_array.flatten()
     for i, indx in enumerate(flat_array):
-        fig = plot_image(dataset[indx], fig=fig, figsize=figsize, title_maker=title_maker,
+        fig = plot_image(dataset[indx], fig=fig, figsize=figsize, title_maker=title_maker, jargon=jargon,
                          plot_layout=(*layout, i + 1), *imshow_args, **imshow_kwargs)
     plt.tight_layout()
     return fig

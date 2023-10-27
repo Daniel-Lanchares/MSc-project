@@ -8,10 +8,13 @@ tqdm~=4.65.2
 gwpy~=3.0.5
 pycbc~=2.2.1
 bilby~=2.1.1
+astropy~=5.3.1
+pesummary~=0.13.10
 
 torch~=2.0.1
 torchvision~=0.15.2
 glasflow~=0.2.0
 scikit-image~=0.21.0
+
 
 

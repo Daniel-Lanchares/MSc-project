@@ -7,7 +7,8 @@ import torch
 from torchvision import models
 from dtempest.core import Estimator
 
-from dtempest.core.conversion_utils import convert_dataset, plot_images
+from dtempest.gw.conversion import convert_dataset, plot_images
+from dtempest.gw.catalog import Catalog
 import dtempest.core.flow_utils as trans
 
 '''
@@ -57,12 +58,12 @@ for seed in range(3, 4):
     dataset = np.concatenate((dataset, torch.load(rawdat_dir / f'Raw_Dataset_{seed}.pt')))
     print(f'Loaded Raw_dataset_{seed}.pt')
 
-flow0 = Estimator.load_from_file(traindir1 / 'v0.1.0.pt')
+#flow0 = Estimator.load_from_file(traindir1 / 'v0.1.0.pt')
 flow1 = Estimator.load_from_file(traindir1 / 'v0.1.5.pt')
-flow0.eval()
+#flow0.eval()
 flow1.eval()
 
-trainset = convert_dataset(dataset, flow0.param_list, name='Dataset 3')
+trainset = convert_dataset(dataset, flow1.param_list, name='Dataset 3')
 
 # Preprocessing can be done manually if preferred, passing preprocess = False to various flow methods
 # trainset = flow.preprocess(trainset)
@@ -84,15 +85,27 @@ trainset = convert_dataset(dataset, flow0.param_list, name='Dataset 3')
 # print(error1)
 # plt.show()
 
-sset0 = flow0.sample_set(5000, trainset[:][:], name='v0.1.0')  # TODO: savefile / loadfile methods.
-sset1 = flow1.sample_set(5000, trainset[:][:], name='v0.1.5')  # They take some time to make
-error0 = sset0.accuracy_test(sqrt=True)
+testset = convert_dataset(Catalog('gwtc-1').mergers.values(), ['chirp_mass'])
+print(testset)
+
+#sset0 = flow0.sample_set(50, trainset[:][:], name='v0.1.0')  # TODO: savefile / loadfile methods.
+sset1 = flow1.sample_set(50, trainset[:][:], name='v0.1.5')  # They take some time to make
+sset2 = flow1.sample_set(500, testset, name='gwtc-1')  # They take some time to make
+
+print(sset2['GW170817'].accuracy_test(sqrt=True))  # MSE of ~45 Solar Masses. Will need to look into it
+del sset2['GW170817']
+
+#error0 = sset0.accuracy_test(sqrt=True)
 error1 = sset1.accuracy_test(sqrt=True)
+error2 = sset2.accuracy_test(sqrt=True)
+
 
 # print(sset0[n])
-print(error0.mean(axis=1))
+#print(error0.mean(axis=1))
 print()
 print(error1.mean(axis=1))
+print()
+print(error2.mean(axis=1))  # Improves a bit. Will need to take a look at each individually
 print()
 # print(trainset['labels'][n])
 # layout = np.array([['chirp_mass', ], ])

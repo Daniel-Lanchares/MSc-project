@@ -184,7 +184,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         if params is None:
             params = self.param_list
         sset = SampleSet(params, name)
-        with tqdm(total=len(data.index), desc=f'Creating SampleDict {name}', ncols=100) as p_bar:
+        with tqdm(total=len(data.index), desc=f'Creating SampleSet {name}', ncols=100) as p_bar:
             for event in data.index:
                 sset[str(event)] = self.sample_dict(num_samples,
                                                     data['images'][event],
