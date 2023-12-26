@@ -1,15 +1,14 @@
 from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
-from pprint import pprint
+# from pprint import pprint
 
 import torch
-from torchvision import models
+# from torchvision import models
 from dtempest.core import Estimator
 
-from dtempest.core.net_utils import create_feature_extractor
-from dtempest.core.flow_utils import create_flow
-from dtempest.core.conversion_utils import convert_dataset, plot_images
+
+from dtempest.gw.conversion import convert_dataset
 
 '''
 Right now this file is useless (outside of testing)
@@ -21,46 +20,34 @@ files_dir = Path('/home/daniel/Documentos/GitHub/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '2: 4 parameter model'
-traindir = train_dir / 'training_test_0'
+traindir = train_dir / 'training_test_3'
 
-params_list = [
-    'chirp_mass',
-    'chi_eff',
-    'd_L',
-    'NAP'
-    ]
+# params_list = [
+#     'chirp_mass',
+#     'chi_eff',
+#     'd_L',
+#     'NAP'
+#     ]
 
-extractor_config = {
-    'n_features': 1024,
-    'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
-    }
-flow_config = {  # As it is now, it explodes instantly
-    'input_dim': len(params_list),
-    'context_dim': extractor_config['n_features'],
-    'num_flow_steps': 5,
-    'base_transform_kwargs': {  # These I will study in more detail #TODO
-        'hidden_dim': 4,
-        'num_transform_blocks': 2,
-        # 'num_bins': 8
-        },
-    }
 
 dataset = []
-for seed in range(1):
+for seed in range(6, 7):
     dataset = np.concatenate((dataset, torch.load(rawdat_dir/f'Raw_Dataset_{seed}.pt')))
     print(f'Loaded Raw_dataset_{seed}.pt')
 
-trainset = convert_dataset(dataset, params_list)#trainset_dir/'4_parameter_trainset.pt')
-del dataset
-pre_process = models.ResNet18_Weights.DEFAULT.transforms(antialias=True)  # True for internal compatibility reasons
-processed_trainset = (pre_process(trainset[0]), trainset[1])
-del trainset
+flow = Estimator.load_from_file(traindir / 'v2.3.2_NAP.pt')
 
-# TODO: load_from_file
-flow = Estimator(params_list, processed_trainset, traindir, flow_config, extractor_config, mode='extractor+flow')
-flow.model.load_state_dict(torch.load(traindir / 'Model_state_dict.pt'))
 flow.eval()
 
+trainset = convert_dataset(dataset, flow.param_list, name='Dataset 6')
 
-sdict = flow.sample_dict(10, processed_trainset[0][0])
-pprint(sdict)
+sset = flow.sample_set(3000, trainset[:][:10], name='v2.3.2_NAP')
+
+error = sset.accuracy_test(sqrt=True)
+
+sdict = sset['6.00001']
+fig = sdict.plot(type='corner')
+print(error.mean(axis=0))
+samples = flow.sample_and_log_prob(1000, trainset['images'][0])
+print(-torch.mean(samples[1]))
+plt.show()

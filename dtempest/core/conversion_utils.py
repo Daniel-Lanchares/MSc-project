@@ -88,7 +88,10 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
 
     dataset = check_format(dataset)
     if name is None:
-        name = TrainSet.__name__
+        if hasattr(dataset, 'name'):
+            name = dataset.name
+        else:
+            name = TrainSet.__name__
     if jargon is None:
         raise RuntimeError('You have no jargon defined: '
                            'To properly convert parameters a jargon["parameter_pool"] is required')
@@ -131,6 +134,7 @@ def calc_parameter(param, pool, params_dict):
         missing_dict = {arg: calc_parameter(arg, pool, params_dict) for arg in missing_args}
         return pool[param](**missing_dict, **params_dict)
 
+
 def extract_parameters(dataset, params_list, jargon: dict = None):
     """
     Extracts an array of specified parameters
@@ -171,7 +175,7 @@ def get_param_alias(parameter, jargon: dict = None):
     try:
         alias = jargon['alias_dict'][parameter]
     except KeyError:
-        print('Parameter misspelled or alias not yet implemented')
+        print(f'Parameter "{parameter}" misspelled or alias not yet implemented')
         alias = 'unknown alias'
     return alias
 
@@ -186,7 +190,7 @@ def get_param_units(parameter, jargon: dict = None):
     try:
         unit = jargon['unit_dict'][parameter]
     except KeyError:
-        print('Parameter misspelled or unit not yet implemented')
+        print(f'Parameter "{parameter}" misspelled or unit not yet implemented')
         unit = 'unknown unit'
     return unit
 

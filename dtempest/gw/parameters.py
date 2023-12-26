@@ -91,8 +91,9 @@ def chi_p(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
     chi2_p = chi_2_in_plane(a_2, tilt_2)
     return np.maximum(chi1_p, q * (3 * q + 4) / (4 * q + 3) * chi2_p)
 
-def luminosity_distance(z):
-    pass
+
+def d_L(z):
+    raise NotImplementedError
 
 redef_dict = {  # MANY MISSING (redshift) #TODO
     'mass_1': mass_1,
@@ -117,7 +118,9 @@ unit_dict = {  # MANY MISSING #TODO
     'NAP': r'$ø$',
     'chi_eff': r'$ø$',
     'chi_p': r'$ø$',
-    'd_L': r'$Mpc$'
+    'd_L': r'$Mpc$',
+    'ra': r'$rad$',
+    'dec': r'$rad$'
 }
 
 alias_dict = {  # MANY MISSING #TODO
@@ -129,5 +132,7 @@ alias_dict = {  # MANY MISSING #TODO
     'NAP': 'Network Antenna Pattern',
     'chi_eff': r'$\chi_{eff}$',
     'chi_p': r'$\chi_{p}$',
-    'd_L': r'$d_L$'
+    'd_L': r'$d_L$',
+    'ra': r'$ra$',
+    'dec': r'$dec$'
 }

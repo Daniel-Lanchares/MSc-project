@@ -9,7 +9,7 @@ from tqdm import tqdm
 
 from pesummary.utils.samples_dict import SamplesDict
 
-from .common_utils import PrintStyle, jargon_lookup
+from .common_utils import PrintStyle
 from .conversion_utils import get_param_alias, get_param_units
 from .train_utils import TrainSet
 
@@ -248,7 +248,7 @@ class SampleSet(SampleDict):
                 data[event] = sdict.accuracy_test(sqrt)
                 p_bar.update(1)
 
-        return MSEDataFrame(data=data, name=f'MSE from {self.name}', sqrt=sqrt)
+        return MSEDataFrame(data=pd.DataFrame(data=data).T, name=f'MSE from {self.name}', sqrt=sqrt)
 
     def __setitem__(self, key, value):
         """ Overrides the SampleDict __setitem__ """

@@ -1,17 +1,20 @@
+import time
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
 from pathlib import Path
 from copy import copy
+from collections import OrderedDict
 from typing import Callable
 
 from tqdm import tqdm
+from torch.utils.data import DataLoader
 
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
 from .sampling import SampleDict, SampleSet
-from .train_utils import train_model, TrainSet, QTDataset, DataLoader
+from .train_utils import train_model, TrainSet, QTDataset
 
 
 class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dataset(s) used to train
@@ -20,10 +23,12 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                  param_list: list | np.ndarray | torch.Tensor,
                  flow_config: dict,
                  net_config: dict = None,
-                 train_config: dict = None,
+                 train_config: dict = None,  # Deprecated. For older models only
+                 train_history: dict = None,
                  workdir: str | Path = Path(''),
                  name: str = '',
                  mode: str = 'extractor+flow',
+                 device: str = 'cpu',
                  preprocess: Callable = identity,
                  ):
         """
@@ -48,14 +53,26 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
             Context is preprocessed under the hood, but can still be done explicitly by the user
             (see preprocess method).
         """
-        self.param_list = param_list
-        self.workdir = Path(workdir)
-        self.name = name
 
-        self.train_config = train_config
-        self.net_config = net_config
-        self.flow_config = flow_config
-        self.mode = mode
+        if train_history is None:
+            train_history = OrderedDict()
+
+        self.metadata = {
+            'name': name,
+            'param_list': param_list,
+
+            'net_config': net_config,
+            'flow_config': flow_config,
+            'train_history': train_history,
+
+            'mode': mode,
+            'preprocess': preprocess,
+            'device': device
+        }
+
+        self.workdir = Path(workdir)
+        self.device = device
+
         self._preprocess = preprocess
         if mode == 'extractor+flow':
             self.model = create_flow(emb_net=create_feature_extractor(**net_config), **flow_config)
@@ -68,8 +85,32 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         else:
             raise ValueError(f'Either mode {mode} was misspelled or is not implemented')
 
+        self.model_to_device(device)
+
+    def __getattr__(self, item):
+        if item in self.metadata.keys() and item != 'preprocess':
+            return self.metadata[item]
+        else:
+            return self.__dict__[item]
+
+    def model_to_device(self, device):
+        """
+        Put model to device, and set self.device accordingly.
+        """
+        if device not in ("cpu", "cuda"):
+            raise ValueError(f"Device should be either cpu or cuda, got {device}.")
+        self.device = torch.device(device)
+        # Commented below so that code runs on first cuda device in the case of multiple.
+        # if device == 'cuda' and torch.cuda.device_count() > 1:
+        #     print("Using", torch.cuda.device_count(), "GPUs.")
+        #     raise NotImplementedError('This needs testing!')
+        #     # dim = 0 [512, ...] -> [256, ...], [256, ...] on 2 GPUs
+        #     self.model = torch.nn.DataParallel(self.model)
+        print(f"Putting posterior model to device {self.device}.")
+        self.model.to(self.device)
+
     @classmethod
-    def load_from_file(cls, savefile_path: str | Path, **kwargs):
+    def load_from_file(cls, savefile_path: str | Path, get_metadata: bool = False, **kwargs):
         """
         savefile should be a torch.save() of a tuple(state_dict, metadata)
         """
@@ -80,23 +121,20 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         metadata.update(kwargs)
         estimator = cls(**metadata)
         estimator.model.load_state_dict(state_dict)
+
+        if get_metadata:
+            return estimator, metadata
         return estimator
 
     def save_to_file(self, savefile: str | Path):
-        metadata = {
-            'name': self.name,
-            'param_list': self.param_list,
-            'preprocess': self._preprocess,
-            'mode': self.mode,
+        torch.save((self.model.state_dict(), self.metadata), self.workdir / savefile)
 
-            'train_config': self.train_config,
-            'net_config': self.net_config,
-            'flow_config': self.flow_config
-        }
-        torch.save((self.model.state_dict(), metadata), self.workdir / savefile)
+    @property
+    def name(self):
+        return self.metadata['name']
 
     def rename(self, new_name):
-        self.name = new_name
+        self.metadata['name'] = new_name
 
     def eval(self):
         self.model.eval()
@@ -136,16 +174,40 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
             trainset['labels'][i] = torch.tensor(trainset['labels'][i])
         return trainset
 
+    def _append_training_stage(self, train_config):
+        n = len(self.metadata['train_history'])
+        self.metadata['train_history'].update({f'stage {n}': train_config})
+        return n
+
+    def _append_stage_training_time(self, stage_num, train_time):
+        self.metadata['train_history'][f'stage {stage_num}'].update({'training_time': train_time})
+        print(f'train_time: {train_time} hours')
+
     def train(self, trainset: TrainSet | str | Path, traindir, train_config, preprocess: bool = True):
-        self.train_config = train_config
+
         trainset = check_format(trainset)
+        traindir = Path(traindir)
+        # Check if traindir exists and make if it does not
+        traindir.mkdir(parents=True, exist_ok=True)
+
+        train_config.update({'trainset': trainset.name})
+        n = self._append_training_stage(train_config)
+
         if preprocess:
             trainset = self.preprocess(trainset)
 
         train_dataset = QTDataset(trainset)
-        dataloader = DataLoader(train_dataset, batch_size=self.train_config['batch_size'])
+        del trainset
+        dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
 
-        epoch, losses = train_model(self.model, dataloader, traindir, self.train_config)
+        t1 = time.time()
+        epoch, losses = train_model(self.model, dataloader, train_config)
+        t2 = time.time()
+        self._append_stage_training_time(n, (t2-t1)/3600)
+
+        lossdir = traindir / f'loss_data{self.name}_stage_{n}'
+        lossdir.mkdir(parents=True, exist_ok=True)
+        torch.save((epoch, losses), lossdir/'loss_data.pt')
 
         epoch_data_avgd = epoch.reshape(train_config['num_epochs'], -1).mean(axis=1)
         loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
@@ -155,7 +217,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         plt.xlabel('Epoch Number')
         plt.ylabel('Log Probability')
         plt.title('Log Probability (avgd per epoch)')
-        plt.savefig(traindir / f'loss_plot_{self.name}.png', format='png')
+        plt.savefig(lossdir / f'loss_plot_{self.name}_stage_{n}.png', format='png')
 
     def sample_dict(self,
                     num_samples: int,
@@ -190,7 +252,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                                                     data['images'][event],
                                                     params,
                                                     str(event),
-                                                    data['labels'][event],  # If real event: either None or other estimation
+                                                    data['labels'][event],  # If real event: either None or estimation
                                                     preprocess)
                 p_bar.update(1)
         return sset

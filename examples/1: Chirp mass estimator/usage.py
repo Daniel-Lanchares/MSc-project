@@ -6,11 +6,15 @@ import matplotlib.pyplot as plt
 import torch
 from torchvision import models
 from dtempest.core import Estimator
+from dtempest.core.sampling import SampleDict
+from dtempest.core.common_utils import load_rawsets, seeds2names
 
 from dtempest.gw.conversion import convert_dataset, plot_images
-from dtempest.gw.catalog import Catalog
+from dtempest.gw.catalog import Catalog, Merger
 import dtempest.core.flow_utils as trans
 
+from pesummary.utils.samples_dict import MultiAnalysisSamplesDict
+from pesummary.gw.conversions import convert
 '''
 Chirp mass estimation has been achieved but is yet far from ideal
 
@@ -28,7 +32,8 @@ trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '1: Chirp mass estimator'
 traindir0 = train_dir / 'training_test_0'
 traindir1 = train_dir / 'training_test_1'
-
+traindir4 = train_dir / 'training_test_4'
+catalog_dir = files_dir / 'GWTC-1 Samples'
 # extractor_config = {
 #     'n_features': 1024,
 #     'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
@@ -53,17 +58,15 @@ traindir1 = train_dir / 'training_test_1'
 #     }
 # }
 
-dataset = []
-for seed in range(3, 4):
-    dataset = np.concatenate((dataset, torch.load(rawdat_dir / f'Raw_Dataset_{seed}.pt')))
-    print(f'Loaded Raw_dataset_{seed}.pt')
+# dataset = load_rawsets(rawdat_dir, seeds2names(3))
 
-#flow0 = Estimator.load_from_file(traindir1 / 'v0.1.0.pt')
-flow1 = Estimator.load_from_file(traindir1 / 'v0.1.5.pt')
-#flow0.eval()
+
+flow0 = Estimator.load_from_file(traindir4 / 'v0.4.2.pt')
+flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
+flow0.eval()
 flow1.eval()
 
-trainset = convert_dataset(dataset, flow1.param_list, name='Dataset 3')
+# trainset = convert_dataset(dataset, flow1.param_list)
 
 # Preprocessing can be done manually if preferred, passing preprocess = False to various flow methods
 # trainset = flow.preprocess(trainset)
@@ -85,27 +88,31 @@ trainset = convert_dataset(dataset, flow1.param_list, name='Dataset 3')
 # print(error1)
 # plt.show()
 
-testset = convert_dataset(Catalog('gwtc-1').mergers.values(), ['chirp_mass'])
-print(testset)
+catalog = Catalog('gwtc-1')
+# These 3 may not have been processed correctly, either too low of a mass or bad luck
+# del catalog['GW170817'], catalog['GW170809'], catalog['GW170608']
+
+testset = convert_dataset(catalog.mergers.values(), ['chirp_mass'])
+# print(testset['labels']['GW150914'])
 
 #sset0 = flow0.sample_set(50, trainset[:][:], name='v0.1.0')  # TODO: savefile / loadfile methods.
-sset1 = flow1.sample_set(50, trainset[:][:], name='v0.1.5')  # They take some time to make
-sset2 = flow1.sample_set(500, testset, name='gwtc-1')  # They take some time to make
+sset0 = flow0.sample_set(10000, testset, name='gwtc-1 v0.4.0')  # They take some time to make
+sset1 = flow1.sample_set(10000, testset, name='gwtc-1 v0.4.2')  # They take some time to make
 
-print(sset2['GW170817'].accuracy_test(sqrt=True))  # MSE of ~45 Solar Masses. Will need to look into it
-del sset2['GW170817']
+# print(sset2['GW170817'].accuracy_test(sqrt=True))  # MSE of ~45 Solar Masses. Will need to look into it
+#del sset2['GW170817']
 
-#error0 = sset0.accuracy_test(sqrt=True)
+error0 = sset0.accuracy_test(sqrt=True)
 error1 = sset1.accuracy_test(sqrt=True)
-error2 = sset2.accuracy_test(sqrt=True)
+# error2 = sset2.accuracy_test(sqrt=True)
 
 
 # print(sset0[n])
 #print(error0.mean(axis=1))
 print()
-print(error1.mean(axis=1))
+print(error0.mean())
 print()
-print(error2.mean(axis=1))  # Improves a bit. Will need to take a look at each individually
+print(error1.mean())  # Improves a bit. Will need to take a look at each individually
 print()
 # print(trainset['labels'][n])
 # layout = np.array([['chirp_mass', ], ])
@@ -113,6 +120,25 @@ print()
 # fig = sset1[n].plot_1d_hists(layout, style='deserted', fig=fig, label='shared', same=True,
 #                              title=r'$\bf{MKI}$ vs $\bf{v0.1.0}$')
 # plt.show()
+
+event = 'GW170823'
+
+#gwtc1 = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
+gwtc1 = convert(SampleDict.from_file(catalog_dir / f'{event}_GWTC-1.hdf5'))
+
+multi = MultiAnalysisSamplesDict({f"Estimator {flow1.name}": sset1[event], "GWTC-1": gwtc1})
+
+
+fig = multi.plot('chirp_mass', type='hist', kde=True, figsize=(10, 8),
+                 legend_kwargs=dict(
+    bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, handlelength=3, mode="expand",
+    borderaxespad=0.0, title=f'Comparison for {event}', title_fontsize='large'
+))
+# fig = sset2[event].plot(parameter='chirp_mass', type='hist')
+# plt.axvline(testset['labels'][event], color='tab:orange')
+# plt.title(f'Comparison for {event}', pad=35)
+# plt.savefig(f'comparison_{flow1.name}_{event}.png')
+plt.show()
 # Idea: Model family class: sharing common architecture. Example: Family 0.1: Same config as v0.1.0
 '''
 MSE improved, need to calculate average uncertainty range (precision_test) (v0.1.0 should be much better).

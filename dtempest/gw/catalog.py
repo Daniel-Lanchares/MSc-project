@@ -77,6 +77,11 @@ class Merger(pycbc_Merger, dict):
         else:
             raise KeyError(f'{type(self)} does not have the atribute "{key}"')
 
+    def __repr__(self):
+        items = list(self['parameters'].items())
+        rep = "{'"+str(items[0][0])+"': "+str(items[0][1])+" ... }"
+        return rep
+
     def process_strains(self):
         channels = {}
         for ifo in self.detectors:
@@ -110,8 +115,21 @@ class Catalog(pycbc_Catalog):
 
         self.data = get_source(source=self.source)
         self.mergers = {name: Merger(name,
-                                     source=source) for name in self.data}
+                                     source=source) for name in self.data.keys()}
         self.names = self.mergers.keys()
+
+    def __delitem__(self, key):
+        try:
+            del self.mergers[key]
+        except KeyError:
+            # Try common name
+            for m in self.mergers:
+                if key == self.mergers[m].common_name:
+                    break
+            else:
+                raise ValueError('Did not find merger matching'
+                                 ' name: {}'.format(key))
+            del self.mergers[m]
 
 
 # c = Catalog('gwtc-1')
