@@ -40,7 +40,7 @@ class TrainSet:
             else:
                 # ... Or have a generic name
                 name = type(self).__name__
-        self.name = name
+        self._df.name = name
 
     def __getattr__(self, attr):
         if attr in self.__dict__:
@@ -54,6 +54,30 @@ class TrainSet:
 
     def __setitem__(self, item, data):
         self._df[item] = data
+
+    @classmethod
+    def load(cls, path, name: str = None):
+        # Trainset loads and saves its internal DataFrame, not the TrainSet itself
+        try:
+            name, df = torch.load(path)
+        except ValueError:
+            # Then is a lightweight save
+            df = pd.read_pickle(path)
+            name = path.parts[-1][:-3]
+
+        return TrainSet(data=df, name=name)
+
+
+    def save(self, path, lightweight: bool = False):
+        # Trainset loads and saves its internal DataFrame, not the TrainSet itself
+        # lightweight saves the dataframe contents only. loses the name but is much more compact
+        # If it isn't given a pickle file it will name it after itself
+        if path.parts[-1][-3:] != '.pt':
+            path = path / f'{self.name}.pt'
+        if lightweight:
+            self._df.to_pickle(path)
+        else:
+            torch.save((self.name, self._df), path)
 
     def __len__(self):
         return self._df.shape[0]
@@ -85,7 +109,6 @@ class FeederDataset(Dataset):
 
 
 def train_model(model, dataloader, train_config):
-
     n_epochs = train_config['num_epochs']
     checkpt = train_config['checkpoint_every_x_epochs']
     lr = train_config['learning_rate']
@@ -130,8 +153,6 @@ def train_model(model, dataloader, train_config):
             continue
         else:
             sched.step()  # TODO Implement possibility for schedulers that take loss values
-
-
 
     # For manually variable lr
     # for g in optim.param_groups:

@@ -119,10 +119,9 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
         label_list.append(np.array(labels))
         name_list.append(data['id'])
 
-    # Tough a roundabout, tensor(array(list)) is the recommended (faster) way
     converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list, name=name)
     if outpath is not None:
-        torch.save(converted_dataset, outpath)
+        converted_dataset.save(outpath)
     return converted_dataset
 
 

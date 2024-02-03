@@ -129,7 +129,8 @@ def convert_dataset(*args, method: str = 'default', **kwargs):
     if method == 'default':
         try:
             return convert_dataset_fast(*args, **kwargs)
-        except Exception:  # generic exception for now
+        except Exception as exception:  # generic exception for now
+            print(exception)
             print('Something went wrong in conversion process: Switching to reliable method')
             return convert_dataset_reliable(*args, **kwargs)
     elif method == 'fast':
