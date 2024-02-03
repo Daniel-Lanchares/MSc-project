@@ -2,10 +2,9 @@ from pathlib import Path
 from pprint import pprint
 import numpy as np
 
-from torchvision import models
 from dtempest.core import Estimator
 
-from dtempest.core.common_utils import load_rawsets, seeds2names
+from dtempest.core.common_utils import load_rawsets, seeds2names, get_extractor
 from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
@@ -23,10 +22,11 @@ params_list = [
     'ra',
     'dec'
 ]
+model, weights, pre_process = get_extractor('resnet18')
 
 extractor_config = {
     'n_features': 512,
-    'base_net': models.resnet18(weights=models.ResNet18_Weights.DEFAULT)
+    'base_net': model(weights=weights)  # To allow different weights. Can be
     }
 
 train_config = {
@@ -44,7 +44,7 @@ train_config = {
     #     }
     }
 
-flow_config = {  # This config seems to top at log_prob ~4, tough it may slowly improve
+flow_config = {  # This config seems to top at log_prob ~14.5, tough it may slowly improve
     'input_dim': len(params_list),
     'context_dim': extractor_config['n_features'],
     'num_flow_steps': 5,  # Adding more seemed to help slightly
@@ -80,8 +80,6 @@ dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
 
 # Convert to Trainset object (pd.DataFrame based instead of OrderedDict based)
 dataset = convert_dataset(dataset, params_list)
-
-pre_process = models.ResNet18_Weights.DEFAULT.transforms(antialias=True)  # True for internal compatibility reasons
 
 '''Flow creation'''
 # flow = Estimator(params_list, flow_config, extractor_config, name='v3.4.0',

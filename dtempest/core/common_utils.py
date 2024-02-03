@@ -1,12 +1,12 @@
 import torch
 import numpy as np
 import pandas as pd
+from importlib import import_module
 from pathlib import Path
 
 
 # Look for more colors just in case
 class PrintStyle:
-
     black = '\033[30m'
     red = '\033[31m'
     green = '\033[32m'
@@ -58,7 +58,21 @@ def get_missing_args(type_excep):
     crumbs = type_excep.args[0].split(' ')
     n_args = int(crumbs[2])
 
-    return [crumbs[-2*i+1][1:-1] for i in reversed(range(1, n_args+1))]
+    return [crumbs[-2 * i + 1][1:-1] for i in reversed(range(1, n_args + 1))]
+
+
+def get_extractor(name):
+    import torchvision.models as models
+    model = getattr(models, name)
+    weights = getattr(getattr(models, f'{models_dict[name]}_Weights'), 'DEFAULT')
+    pre_process = weights.transforms(antialias=True)  # True for internal compatibility reasons
+
+    return model, weights, pre_process
+
+
+models_dict = {
+    'resnet18': 'ResNet18'
+}
 
 
 class RawSet:  # TODO
@@ -66,6 +80,7 @@ class RawSet:  # TODO
     Iterable of OrderedDicts containing fully described events (injections in GW)
     Could be a subclass of list...
     """
+
     def __init__(self, rawdata, name: str = None, *args, **kwargs):
         self._df = pd.Series(*args, **kwargs)
         if name is None:
@@ -97,13 +112,13 @@ class RawSet:  # TODO
 
 def seeds2names(seeds):
     if not hasattr(seeds, '__iter__'):
-        seeds = [seeds,]
+        seeds = [seeds, ]
     return [f'Raw_Dataset_{seed:03}.pt' for seed in seeds]
 
 
 def load_rawsets(directory, names: list[str], verbose: bool = True):
     if not hasattr(names, '__iter__'):
-        names = [names,]
+        names = [names, ]
     dataset = []
     for name in names:
         dataset = np.concatenate((dataset, torch.load(directory / name)))
