@@ -14,7 +14,7 @@ from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
 from .sampling import SampleDict, SampleSet
-from .train_utils import train_model, TrainSet, QTDataset
+from .train_utils import train_model, TrainSet, FeederDataset
 
 
 class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dataset(s) used to train
@@ -183,7 +183,8 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         self.metadata['train_history'][f'stage {stage_num}'].update({'training_time': train_time})
         print(f'train_time: {train_time} hours')
 
-    def train(self, trainset: TrainSet | str | Path, traindir, train_config, preprocess: bool = True):
+    def train(self, trainset: TrainSet | str | Path, traindir, train_config, preprocess: bool = True,
+              save_loss: bool = True, make_plot: bool = True):
 
         trainset = check_format(trainset)
         traindir = Path(traindir)
@@ -196,28 +197,36 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
         if preprocess:
             trainset = self.preprocess(trainset)
 
-        train_dataset = QTDataset(trainset)
-        del trainset
-        dataloader = DataLoader(train_dataset, batch_size=train_config['batch_size'])
+        # FeederDataset is a train-only oriented object meant to work with Pytorch's DataLoader
+        trainset = DataLoader(FeederDataset(trainset), batch_size=train_config['batch_size'])
 
         t1 = time.time()
-        epoch, losses = train_model(self.model, dataloader, train_config)
+        epoch, losses = train_model(self.model, trainset, train_config)
         t2 = time.time()
-        self._append_stage_training_time(n, (t2-t1)/3600)
+        self._append_stage_training_time(n, (t2 - t1) / 3600)
 
-        lossdir = traindir / f'loss_data{self.name}_stage_{n}'
-        lossdir.mkdir(parents=True, exist_ok=True)
-        torch.save((epoch, losses), lossdir/'loss_data.pt')
+        zero_pad = 3  # Hard coded for now
 
-        epoch_data_avgd = epoch.reshape(train_config['num_epochs'], -1).mean(axis=1)
-        loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
+        if save_loss:
+            lossdir = traindir / f'loss_data_{self.name}_stage_{n:0{zero_pad}}'
+            lossdir.mkdir(parents=True, exist_ok=True)
 
-        plt.figure(figsize=(10, 8))
-        plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
-        plt.xlabel('Epoch Number')
-        plt.ylabel('Log Probability')
-        plt.title('Log Probability (avgd per epoch)')
-        plt.savefig(lossdir / f'loss_plot_{self.name}_stage_{n}.png', format='png')
+            torch.save((epoch, losses), lossdir / 'loss_data.pt')
+
+        if make_plot:
+            # Redundancy in lossdir creation to please Pytorch's checker
+            lossdir = traindir / f'loss_data_{self.name}_stage_{n:0{zero_pad}}'
+            lossdir.mkdir(parents=True, exist_ok=True)
+
+            epoch_data_avgd = epoch.reshape(train_config['num_epochs'], -1).mean(axis=1)
+            loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
+
+            plt.figure(figsize=(10, 8))
+            plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
+            plt.xlabel('Epoch Number')
+            plt.ylabel('Log Probability')
+            plt.title('Log Probability (avgd per epoch)')
+            plt.savefig(lossdir / f'loss_plot_{self.name}_stage_{n}.png', format='png')
 
     def sample_dict(self,
                     num_samples: int,

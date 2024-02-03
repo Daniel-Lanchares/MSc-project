@@ -55,11 +55,14 @@ class TrainSet:
     def __setitem__(self, item, data):
         self._df[item] = data
 
+    def __len__(self):
+        return self._df.shape[0]
+
     def __repr__(self):
         return self._df.__repr__()
 
 
-class QTDataset(Dataset):
+class FeederDataset(Dataset):
     """
     Object to be fed to the DataLoader. It implements basic functionality of feeding system
     and ensures that the model is given a torch.Tensor and not a DataFrame or an array.
