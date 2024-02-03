@@ -40,16 +40,19 @@ default_config = {
     'q_interval': (-0.15, 0.1),
 
     'num_workers': 4,  # Might change in the future. Could be better to pass os.cpu_count()
-    'chunksize': 5
+    'chunksize': 5,
+    'seed_zero_pad': 3,
+    'log_file': None  # Temporary solution until implementation of logging
 }
 
 
 class Injector:
-    def __init__(self, size, path, seed=0, config=None):
+    def __init__(self, size, seed=0, config=None):
         t1 = perf_counter()
+
         if config is None:
             config = {}
-        self.size, self.path, self.seed = size, path, seed
+        self.size, self.seed = size, seed
 
         self.config = deepcopy(default_config)
         for attr, val in config.items():
@@ -60,15 +63,27 @@ class Injector:
         # Variable meant to hold noise samples
         self.strains = {}
 
-        self.params = self.generate_base_parameters(size, seed)
+        self.params = self.generate_base_parameters(self.size, self.seed)
         self.valid_injections = self.parallel_generation(self.params)
         self.acceptance = len(self.valid_injections)/self.size
-        print(f'\nAcceptance: {len(self.valid_injections)}/{self.size} ({self.acceptance:.2%})')
 
-        torch.save(self.valid_injections, self.path)
         t2 = perf_counter()
-        dt = (t2-t1)/60
-        print(f'Dataset saved. It took {int(dt)} minutes {round((dt-int(dt))*60)} seconds')
+        self.dt = (t2 - t1) / 60
+
+        st0 = f'\n    Seed {seed:0{config["seed_zero_pad"]}}: '
+        st1 = f'Acceptance {len(self.valid_injections):0{2}}/{self.size:0{2}} ({self.acceptance:.2%}) '
+        st2 = f'It took {int(self.dt):0{2}} minutes {round((self.dt-int(self.dt))*60):0{2}} seconds'
+
+        message = st0+st1+st2
+        print(message)
+
+        if config['log_file'] is not None:
+            with open(config['log_file'], 'a') as log_file:
+                log_file.write(message)
+
+    def save(self, path):
+        torch.save(self.valid_injections, path)
+        print('Dataset saved.')
 
     def generate_base_parameters(self, size, seed=0):
 
