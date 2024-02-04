@@ -91,8 +91,8 @@ class Merger(pycbc_Merger, dict):
 
     def imshow(self, ax=None, *args, **kwargs):
         if ax is None:
-            return plt.imshow(make_image(self, gw_jargon))
-        return ax.imshow(make_image(self, gw_jargon))
+            return plt.imshow(make_image(self, gw_jargon), *args, **kwargs)
+        return ax.imshow(make_image(self, gw_jargon), *args, **kwargs)
 
 
 default_config = {

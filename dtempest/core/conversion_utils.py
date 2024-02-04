@@ -322,7 +322,7 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
     if fig is None:
         fig = plt.figure(figsize=figsize)
 
-    image = make_image(data)
+    image = make_image(data, jargon=jargon)
 
     ax = fig.add_subplot(*plot_layout)
     ax.imshow(image, *imshow_args, **imshow_kwargs)

@@ -178,7 +178,7 @@ class SampleDict(SamplesDict):
     #     return fig
 
     def get_one_dimensional_median_and_error_bar(self, key, fmt='.2f',
-                                                 quantiles=(0.16, 0.84)):
+                                                 quantiles=None):
         # Credit: https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/core/result.py
         """ Calculate the median and error bar for a given key
 
@@ -200,6 +200,8 @@ class SampleDict(SamplesDict):
         """
         summary = namedtuple('summary', ['median', 'lower', 'upper', 'string'])
 
+        if quantiles is None:
+            quantiles = (0.16, 0.84)
         if len(quantiles) != 2:
             raise ValueError("quantiles must be of length 2")
 
@@ -229,6 +231,24 @@ class SampleDict(SamplesDict):
             else:
                 error[param] = (avg-ref)**2
         return error
+
+    def plot(self, *args, type: str = 'marginalized_posterior', values: bool = True, **kwargs):
+        fig = super().plot(type=type, *args, **kwargs)
+
+        if type == 'corner' and values:
+            if kwargs.get('parameters', None) is not None:
+                params = kwargs['parameters']
+            else:
+                params = self.parameters
+            # Give means and quantiles in bilby fashion.
+            axes = fig.get_axes()
+            #  Add the titles
+            for i, par in enumerate(params):
+                ax = axes[i + i * len(params)]
+                if ax.title.get_text() == '':
+                    ax.set_title(self.get_one_dimensional_median_and_error_bar(
+                        par, quantiles=kwargs.get('quantiles', None), **kwargs.get('title_kwargs', {})).string)
+        return fig
 
 
 class SampleSet(SampleDict):
