@@ -196,7 +196,9 @@ plt.show()
 | d_L        |                203.664000 | Mpc         |
 | ra         |                  0.776586 | rad         |
 | dec        |                  0.433297 | rad         |
+
 tensor(8.1986, grad_fn=&lt;NegBackward0&gt;)
+
 ![estimation of 32.00020](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Overfitting_32.00020_logprob_8.13.png)
 ## Main requirements
 This code is built on **PyTorch** and relies on **glasflow.nflows** for its implementation of normalizing flows.
