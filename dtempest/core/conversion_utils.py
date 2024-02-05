@@ -26,7 +26,7 @@ no_jargon = {
     'unit_dict': None,
     'alias_dict': None,
 
-    'default_title_maker': None
+    'default_title_maker': lambda data: 'RGB image'
 }
 
 
@@ -327,7 +327,10 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
     ax = fig.add_subplot(*plot_layout)
     ax.imshow(image, *imshow_args, **imshow_kwargs)
     if title_maker is None:
-        ax.set_title(jargon['default_title_maker'](data))
+        if isinstance(data, dict):
+            ax.set_title(jargon['default_title_maker'](data))
+        else:
+            pass
     else:
         ax.set_title(title_maker(data))
     return fig

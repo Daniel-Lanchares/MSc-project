@@ -34,11 +34,11 @@ train_config = {
     'checkpoint_every_x_epochs': 5,  # Not yet implemented
     'batch_size': 256,  # Almost no effect on RAM compared, but proportional to chance of nan loss at beginning
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.00005,#0.00025,
+    'learning_rate': 0.00003,#0.00025,
     'grad_clip': None,
     # 'sched_kwargs': {
     #     'type': 'StepLR',
-    #     'step_size': 5,  # Note epochs go from 0 to num_epochs-1
+    #     'step_size': 5,
     #     'gamma': 0.8,
     #     'verbose': True
     #     }
@@ -154,4 +154,18 @@ Average: 8.2777, Delta: -0.00833778 (-0.100625%)
 Average: 8.065, Delta: -0.00966291 (-0.11967%)
 
 Average: 7.87069, Delta: -0.00107355 (-0.013638%)
+
+Average: 7.70838, Delta: -0.00530605 (-0.0687875%)
+
+Average: 7.57322, Delta: -0.00367107 (-0.0484509%)
+
+Average: 7.44672, Delta: -0.00564899 (-0.0758013%)
+
+Average: 7.3182, Delta: -0.00537462 (-0.073388%)
+
+Average: 7.20049, Delta: -0.00406437 (-0.0564139%)
+
+Average: 7.07996, Delta: -0.00460453 (-0.0649939%)
+
+Average: 6.97038, Delta: -0.00519047 (-0.0744092%)
 '''
