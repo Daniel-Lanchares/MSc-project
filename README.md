@@ -11,8 +11,7 @@ Due to dependence on LALSuite algorithms the GW package is restricted to Linux/m
 
 [2]: **N**eural **P**osterior **E**stimation
 
-This library has been developed as a Master of Science project whose progress can be tracked here (link not yet 
-available).
+This library has been developed as a Master of Science project whose progress can be tracked [here](Results/README.md).
 
 ## Usage
 The process is meant to have four stages:
@@ -70,7 +69,12 @@ print(trainset) # Right now markdown conversion of table has to be done manually
 | 9.01146 | [[[0.026496682, 0.026856517, 0.023931455, 0.01... | [45.425078093766096, 0.9191168696998269, -0.34... |
 
 - **Model training**: Normalizing flows train in much the same way as neural networks do, by optimizing on the 
-  parameter space. The log probability of the samples is used as loss to be brought to zero.
+  parameter space. The log probability of the samples is used as loss to be brought to zero. Unlike similar 
+  libraries, dtempest is currently centered on the use of pretrained networks to extract the relevant features of 
+  the data to then be fed to the flow, minimizing training complexity. 
+  
+  The flow itself is highly configurable: The middle and base transform are repeated 'num_flow_steps' times then the 
+  final transform returns the sample.
 ```Python
 from pathlib import Path
 from torchvision import models
@@ -78,7 +82,7 @@ from torchvision import models
 from dtempest.core import Estimator
 from dtempest.core.common_utils import get_extractor
 from dtempest.core.conversion_utils import TrainSet
-import dtempest.core.flow_utils as trans
+import dtempest.core.flow_utils as transforms
 
 trainset_path = Path('/path/to/trainsets')
 traindir = Path('/path/to/train/in')
@@ -105,17 +109,17 @@ flow_config = {  # This config is based on DINGO's transforms
     'context_dim': extractor_config['n_features'],
     'num_flow_steps': 5,  # Adding more seemed to help slightly
 
-    'base_transform': trans.mask_affine_autoreg,
+    'base_transform': transforms.mask_affine_autoreg,
     'base_transform_kwargs': {
         'hidden_dim': 2,
         'num_transform_blocks': 3,
         'use_batch_norm': True
     },
-    'middle_transform': trans.random_perm_and_lulinear,
+    'middle_transform': transforms.random_perm_and_lulinear,
     'middle_transform_kwargs': {
 
     },
-    'final_transform': trans.random_perm_and_lulinear,
+    'final_transform': transforms.random_perm_and_lulinear,
     'final_transform_kwargs': {
 
     }
@@ -133,7 +137,7 @@ train_config = {
     'grad_clip': None,
     'sched_kwargs': {
         'type': 'StepLR',
-        'step_size': 15,  # Note epochs go from 0 to num_epochs-1
+        'step_size': 15, 
         'gamma': 0.75,
         'verbose': True
         }
@@ -145,7 +149,8 @@ flow.train(trainset, traindir, train_config)
 flow.save_to_file(traindir/f'{flow.name}.pt')
 
 ```
-- **Inference on trained models**:
+- **Inference on trained models**: Once trained these models can perform regression tasks on either new datasets or, 
+  more interestingly, real data. For gravitational waves this is taken automatically from open data sources.
 
 ```Python
 import torch
@@ -154,20 +159,28 @@ import matplotlib.pyplot as plt
 
 from dtempest.core import Estimator
 from dtempest.core.conversion_utils import TrainSet
+from dtempest.gw.conversion import plot_image
 
 trainset_path = Path('/path/to/trainsets')
 traindir = Path('/path/to/have/trained/on')
 
-trainset = TrainSet.load(trainset_path/'trainset_0_to_10.pkl')
-event = trainset.index[0]
+trainset = TrainSet.load(trainset_path/'trainset_32.pkl')
+
 
 flow = Estimator.load_from_file(traindir / 'overfitting_test.pt')
 flow.eval()
 
 sample_set = flow.sample_set(3000, trainset[:][:], name=flow.name)
-sample_dict = sample_set[event]
 
-fig = sample_dict.plot(type='corner', truths=trainset['labels'][event])
+event = '32.00020'
+image = trainset['images'][event]
+label = trainset['labels'][event]
+sample_dict = sdict = flow.sample_dict(10000, context=image, reference=label)
+
+fig = sample_dict.plot(type='corner', truths=label)
+fig = plot_image(image, fig=fig, 
+                title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 error_series = sample_set.accuracy_test(sqrt=True)
 print(error_series.mean(axis=0))
@@ -175,6 +188,16 @@ samples = flow.sample_and_log_prob(3000, trainset['images'][event])
 print(-torch.mean(samples[1]))
 plt.show()
 ```
+| dataset 32 | MSE from overfitting_test | units       |
+|:-----------|--------------------------:|:------------|
+| chirp_mass |                  5.207210 | $M_{\odot}$ |
+| mass_ratio |                  0.118419 | ø           |
+| chi_eff    |                  0.145676 | ø           |
+| d_L        |                203.664000 | Mpc         |
+| ra         |                  0.776586 | rad         |
+| dec        |                  0.433297 | rad         |
+tensor(8.1986, grad_fn=&lt;NegBackward0&gt;)
+![estimation of 32.00020](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Overfitting_32.00020_logprob_8.13.png)
 ## Main requirements
 This code is built on **PyTorch** and relies on **glasflow.nflows** for its implementation of normalizing flows.
 

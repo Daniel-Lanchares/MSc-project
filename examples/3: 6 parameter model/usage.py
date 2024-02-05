@@ -9,7 +9,7 @@ from dtempest.core import Estimator
 from dtempest.core.sampling import SampleDict
 from dtempest.core.common_utils import load_rawsets, seeds2names
 
-from dtempest.gw.conversion import convert_dataset, plot_images
+from dtempest.gw.conversion import convert_dataset, plot_image
 from dtempest.gw.catalog import Catalog, Merger
 import dtempest.core.flow_utils as trans
 
@@ -33,17 +33,30 @@ flow0.eval()
 # flow1.eval()
 
 seed = 32#999
-event = f'{seed}.00001'
+event = f'{seed}.00020'
+# 32.00009 is a good example of possible degeneration on distance (with inclination maybe?)
+# 32.00012 looks great, just needs better declination
+# 32.00020 nailed, in spite of messy picture
+# 32.00030 nailed, as is fairly high SNR
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
-sset0 = flow0.sample_set(3000, trainset[:][:], name=flow0.name)
+# sset0 = flow0.sample_set(3000, trainset[:][:], name=flow0.name)
+#
+# error = sset0.accuracy_test(sqrt=True)
+#
+# sdict = sset0[event]
+# fig = sdict.plot(type='corner', truths=trainset['labels'][event])
 
-error = sset0.accuracy_test(sqrt=True)
-
-sdict = sset0[event]
+image = trainset['images'][event]
+label = trainset['labels'][event]
+sdict = flow0.sample_dict(10000, context=image, reference=label)
 fig = sdict.plot(type='corner', truths=trainset['labels'][event])
+fig = plot_image(image, fig=fig,
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+
 
 # For discarding problematic samples
 # ras, decs, dists = [], [], []
@@ -59,7 +72,7 @@ fig = sdict.plot(type='corner', truths=trainset['labels'][event])
 # fig = sdict.plot(type='skymap')
 
 
-print(error.mean(axis=0))
+# print(error.mean(axis=0))
 samples = flow0.sample_and_log_prob(3000, trainset['images'][0])
 print(-torch.mean(samples[1]))
 plt.show()
@@ -159,4 +172,15 @@ Dataset 32
 | ra         |                    0.804376 | rad       |
 | dec        |                    0.437851 | rad       |
 tensor(8.9181, grad_fn=<NegBackward0>)
+
+|            |   MSE from overfitting_test | units     |
+|:-----------|----------------------------:|:----------|
+| chirp_mass |                    5.20721  | M_{\odot} |
+| mass_ratio |                    0.118419 | ø         |
+| chi_eff    |                    0.145676 | ø         |
+| d_L        |                  203.664    | Mpc       |
+| ra         |                    0.776586 | rad       |
+| dec        |                    0.433297 | rad       |
+tensor(8.1559, grad_fn=<NegBackward0>)
+
 '''
