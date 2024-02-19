@@ -1,5 +1,4 @@
 from pathlib import Path
-from pprint import pprint
 import numpy as np
 
 from dtempest.core import Estimator

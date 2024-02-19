@@ -1,7 +1,5 @@
-import time
 from pathlib import Path
 import numpy as np
-import matplotlib.pyplot as plt
 
 import torch
 from torchvision import models

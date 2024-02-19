@@ -1,17 +1,14 @@
 from collections import OrderedDict, namedtuple
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 from pprint import pprint
-from copy import deepcopy
 import torch
 from tqdm import tqdm
 
 from pesummary.utils.samples_dict import SamplesDict
 
 from .common_utils import PrintStyle
-from .conversion_utils import get_param_alias, get_param_units
-from .train_utils import TrainSet
+from .conversion_utils import get_param_units
 
 # To be removed later
 from dtempest.gw.conversion import gw_jargon

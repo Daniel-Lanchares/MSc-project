@@ -1,4 +1,3 @@
-import numpy as np
 from pathlib import Path
 from functools import partial
 
@@ -7,7 +6,7 @@ from pesummary.gw.conversions import convert as pesum_convert
 
 from dtempest.gw.parameters import *
 import dtempest.core.conversion_utils as core
-from dtempest.core.common_utils import check_format, get_missing_args
+from dtempest.core.common_utils import check_format
 from dtempest.core.train_utils import TrainSet
 
 gw_jargon = {

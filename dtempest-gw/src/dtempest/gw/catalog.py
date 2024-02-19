@@ -8,7 +8,7 @@ from pycbc.catalog import Merger as pycbc_Merger
 from pycbc.catalog import _aliases
 from pycbc.catalog.catalog import get_source
 
-from dtempest.core.conversion_utils import make_image, convert_dataset
+from dtempest.core.conversion_utils import make_image
 from dtempest.gw.conversion import gw_jargon
 from dtempest.gw.generation.parallel import process_strain
 from dtempest.gw.generation.parallel import default_config as default_gen_config
