@@ -14,12 +14,12 @@ def get_requirements(kind=None):
 
 setup(
     name='dtempest-gw',
-    packages=find_namespace_packages(where='src/', include=['dtempest.gw']),
+    packages=find_namespace_packages(where='src/', include=['dtempest.gw', 'dtempest.gw.generation']),
     package_dir={'': 'src'},
     version='0.1.0',
     description='Implementation of an NPE approach to gravitational wave parameter estimation',
     author='Daniel Lanchares',
     license='MIT',
-    python_requires="~=3.10",
-    # install_requires=get_requirements(),
+    python_requires=">=3.10",
+    install_requires=get_requirements(),
 )

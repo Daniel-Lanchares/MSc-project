@@ -20,6 +20,6 @@ setup(
     description='Implementation of an NPE approach to gravitational wave parameter estimation',
     author='Daniel Lanchares',
     license='MIT',
-    python_requires="~=3.10",
+    python_requires=">=3.10",
     install_requires=get_requirements(),
 )

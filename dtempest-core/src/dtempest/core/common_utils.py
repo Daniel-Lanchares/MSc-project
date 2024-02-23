@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 import pandas as pd
-from importlib import import_module
+from collections import OrderedDict
 from pathlib import Path
 
 
@@ -108,6 +108,12 @@ class RawSet:  # TODO
 
     def __repr__(self):
         return self._df.__repr__()
+
+    def change_parameter_name(self, old_key, to):  # to: New key
+        for data in self:
+            # data['parameters']['luminosity_distance'] = data['parameters'].pop('d_L')
+            data['parameters'] = OrderedDict(
+                [(to, v) if k == old_key else (k, v) for k, v in data['parameters'].items()])
 
 
 def seeds2names(seeds):

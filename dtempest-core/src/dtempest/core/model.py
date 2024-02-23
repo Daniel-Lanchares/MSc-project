@@ -10,14 +10,23 @@ from typing import Callable
 from tqdm import tqdm
 from torch.utils.data import DataLoader
 
+from .config import no_jargon
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
-from .sampling import SampleDict, SampleSet
 from .train_utils import train_model, TrainSet, FeederDataset
 
+from .sampling import SampleSet, SampleDict, MSEDataFrame, MSESeries
 
-class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dataset(s) used to train
+class_dict = {
+    'sample_set': SampleSet,
+    'sample_dict': SampleDict,
+    'data_frame': MSEDataFrame,
+    'series': MSESeries
+}
+
+
+class Estimator:
 
     def __init__(self,
                  param_list: list | np.ndarray | torch.Tensor,
@@ -30,6 +39,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                  mode: str = 'extractor+flow',
                  device: str = 'cpu',
                  preprocess: Callable = identity,
+                 jargon: dict = no_jargon
                  ):
         """
         Main class of the library. Holds the model and can train and sample
@@ -42,7 +52,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
             Configuration dict for normalizing flow
         net_config:
             Configuration dict for neural network
-        train_config:
+        train_config: DEPRECATED
             Configuration dict for training process
         workdir:
             Path to the directory that will hold sample_related files
@@ -52,6 +62,10 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
             preprocess function for the data. It's stored as metadata and can be easily accessed.
             Context is preprocessed under the hood, but can still be done explicitly by the user
             (see preprocess method).
+        device:
+            Device in which to put the model (cpu/cuda).
+        jargon:
+            A dict that contains various task-specific info to be defined in each package.
         """
 
         if train_history is None:
@@ -59,6 +73,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
 
         self.metadata = {
             'name': name,
+            'jargon': jargon,
             'param_list': param_list,
 
             'net_config': net_config,
@@ -87,7 +102,7 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
 
         self.model_to_device(device)
 
-    def __getattr__(self, item):
+    def __getattr__(self, item: 'str'):
         if item in self.metadata.keys() and item != 'preprocess':
             return self.metadata[item]
         else:
@@ -135,6 +150,9 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
 
     def rename(self, new_name):
         self.metadata['name'] = new_name
+
+    def change_parameter_name(self, old_name, to):  # to: new name
+        self.metadata['param_list'] = [to if name == old_name else name for name in self.metadata['param_list']]
 
     def eval(self):
         self.model.eval()
@@ -234,11 +252,17 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                     params: torch.Tensor = None,
                     name: str = None,
                     reference: torch.Tensor = None,
-                    preprocess: bool = True):
+                    preprocess: bool = True,
+                    _class_dict: dict = None):
         samples = self.sample(num_samples, context, preprocess).detach()
         if params is None:
             params = self.param_list
-        sdict = SampleDict(params, name)
+        if _class_dict is None:
+            _class_dict = class_dict
+
+        # Define the corresponding SampleDict child object
+        sdict_obj = _class_dict['sample_dict']
+        sdict = sdict_obj(params, name, jargon=self.jargon)
         for i in range(len(self.param_list)):
             if self.param_list[i] in params:
                 sdict[self.param_list[i]] = copy(samples[0, :, i])
@@ -251,17 +275,26 @@ class Estimator:  # IDEA: Give the possibility of storing the name(s) of the dat
                    data: TrainSet,
                    params: torch.Tensor = None,
                    name: str = None,
-                   preprocess: bool = True):
+                   preprocess: bool = True,
+                   _class_dict: dict = None):
         if params is None:
             params = self.param_list
-        sset = SampleSet(params, name)
+        if _class_dict is None:
+            _class_dict = class_dict
+
+        # Define the corresponding SampleSet child object
+        sset_obj = _class_dict['sample_set']
+        sset = sset_obj(params, name)
         with tqdm(total=len(data.index), desc=f'Creating SampleSet {name}', ncols=100) as p_bar:
             for event in data.index:
-                sset[str(event)] = self.sample_dict(num_samples,
-                                                    data['images'][event],
-                                                    params,
-                                                    str(event),
-                                                    data['labels'][event],  # If real event: either None or estimation
-                                                    preprocess)
+                sset[str(event)] = Estimator.sample_dict(self,
+                                                         num_samples,
+                                                         data['images'][event],
+                                                         params,
+                                                         str(event),
+                                                         data['labels'][event],
+                                                         # If real event: either None or estimation
+                                                         preprocess,
+                                                         _class_dict)
                 p_bar.update(1)
         return sset

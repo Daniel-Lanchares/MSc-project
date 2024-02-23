@@ -1,11 +1,12 @@
 import matplotlib.pyplot as plt
-from pprint import pprint
+# from pprint import pprint
 from pathlib import Path
 import numpy as np
-import pandas as pd
+# import pandas as pd
 
 import torch
 
+from .config import no_jargon
 from .common_utils import check_format, get_missing_args
 from .train_utils import TrainSet
 
@@ -15,19 +16,6 @@ into a dataset compatible with PyTorch [[image0, labels0], ...]
 
 Here regression parameters are also chosen 
 '''
-
-no_jargon = {
-    'image': 'image',
-    'R': 'R',
-    'G': 'G',
-    'B': 'B',
-
-    'param_pool': None,
-    'unit_dict': None,
-    'alias_dict': None,
-
-    'default_title_maker': lambda data: 'RGB image'
-}
 
 
 # class CTDataset(Dataset):
@@ -171,12 +159,21 @@ def get_param_alias(parameter, jargon: dict = None):
     if jargon is None:
         raise RuntimeError('You have no jargon defined: '
                            'To properly convert parameters a jargon["alias_dict"] is required')
+    if jargon['labels'] is None:
+        return 'unknown unit'
     try:
-        alias = jargon['alias_dict'][parameter]
+        label = jargon['labels'][parameter]
     except KeyError:
-        print(f'Parameter "{parameter}" misspelled or alias not yet implemented')
-        alias = 'unknown alias'
-    return alias
+        print(f'Parameter "{parameter}" misspelled or unit not yet implemented')
+        return 'unknown alias'
+    split = label.split(' ')
+    if len(split) == 1:
+        alias = split[0][1:-1]
+    elif len(split) == 2:
+        alias = split[0][1:]
+    else:
+        alias = ''  # If this executes label format is not right ($alias [unit]$)
+    return r'${}$'.format(alias)
 
 
 def get_param_units(parameter, jargon: dict = None):
@@ -186,12 +183,19 @@ def get_param_units(parameter, jargon: dict = None):
     if jargon is None:
         raise RuntimeError('You have no jargon defined: '
                            'To properly convert parameters a jargon["unit_dict"] is required')
+    if jargon['labels'] is None:
+        return 'unknown unit'
     try:
-        unit = jargon['unit_dict'][parameter]
+        label = jargon['labels'][parameter]
     except KeyError:
         print(f'Parameter "{parameter}" misspelled or unit not yet implemented')
-        unit = 'unknown unit'
-    return unit
+        return 'unknown unit'
+
+    try:
+        unit = label.split(' ')[1][1:-2]
+    except IndexError:
+        return r'$ø$'
+    return r'${}$'.format(unit)
 
 
 def plot_hist(dataset, params_list, fig=None, figsize=None,

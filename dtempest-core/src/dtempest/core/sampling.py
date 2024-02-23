@@ -5,13 +5,11 @@ from pprint import pprint
 import torch
 from tqdm import tqdm
 
-from pesummary.utils.samples_dict import SamplesDict
+from .pesum_deps.samples_dict import SamplesDict
 
+from .config import no_jargon
 from .common_utils import PrintStyle
 from .conversion_utils import get_param_units
-
-# To be removed later
-from dtempest.gw.conversion import gw_jargon
 
 # class SampleArray(np.ndarray):
 #     # read this, might be useful
@@ -24,15 +22,105 @@ average_dict = {
 }
 
 
+class MSESeries:
+    """
+    Wrapper class for pandas Series. Stores Mean Squared Error for a SampleDict
+    """
+
+    def __init__(self, name: str = None, sqrt: bool = False, jargon: dict = None, *args, **kwargs):
+        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.Series):
+            self._df = kwargs['data']
+        else:
+            self._df = pd.Series(name=name, *args, **kwargs)
+        if name is None:
+            name = type(self).__name__
+        self.name = name
+        self.sqrt = sqrt
+        self.jargon = jargon
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._df, attr)
+
+    def __getitem__(self, item):
+        if isinstance(self._df[item], pd.Series):
+            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        return self._df[item]
+
+    def __setitem__(self, item, data):
+        self._df[item] = data
+
+    def __repr__(self):
+        temp_df = self._df.to_frame(name=self.name)
+        temp_df['units'] = [get_param_units(param, self.jargon) for param in
+                            self._df.index]
+        if not self.sqrt:
+            temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
+                                else temp_df['units'][param] + r'^2'
+                                for param in self._df.index]
+        return temp_df.to_markdown()
+
+
+class MSEDataFrame:
+    """
+    Wrapper class for pandas DataFrame. Stores Mean Squared Error for a SampleSet
+    """
+
+    def __init__(self, name: str = None, sqrt: bool = False, _series_class=MSESeries, *args, **kwargs):
+        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.DataFrame):
+            self._df = kwargs['data']
+        else:
+            self._df = pd.DataFrame(*args, **kwargs)
+        if name is None:
+            name = type(self).__name__
+        self.name = name
+        self.sqrt = sqrt
+        self._series_class = _series_class
+
+    def __getattr__(self, attr):
+        if attr in self.__dict__:
+            return getattr(self, attr)
+        return getattr(self._df, attr)
+
+    def __getitem__(self, item):
+        if isinstance(self._df[item], pd.Series):
+            return self._series_class(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        if isinstance(self._df[item], pd.DataFrame):
+            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        return self._df[item]
+
+    def __setitem__(self, item, data):
+        self._df[item] = data
+
+    def __repr__(self):
+        return self._df.__repr__()
+
+    # def __repr__(self):
+    #     temp_df = self._df.to_frame()
+    #     temp_df['units'] = [get_param_units(param)[1:-1] for param in self._df.index]
+    #     if not self.sqrt:
+    #         temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
+    #                             else temp_df['units'][param] + r'^2'
+    #                             for param in self._df.index]
+    #     return temp_df.to_markdown()
+
+    def mean(self, *args, **kwargs):
+        # May resort to implement these one by one (at least the most useful)
+        return self._series_class(data=self._df.mean(*args, **kwargs), name=self.name, sqrt=self.sqrt)
+
+
 class SampleDict(SamplesDict):
 
-    def __init__(self, parameters, name: str = None):
-        super().__init__({param: 0 for param in parameters})
+    def __init__(self, parameters, name: str = None, _series_class=MSESeries, jargon: dict = no_jargon):
+        super().__init__({param: 0 for param in parameters}, jargon=jargon)
         self._truth = OrderedDict()
         if name is None:
             self.name = type(self).__name__
         else:
             self.name = name
+
+        self._series_class = _series_class
 
     def __setitem__(self, key, value):
         SamplesDict.__setitem__(self, key, value)
@@ -219,14 +307,14 @@ class SampleDict(SamplesDict):
             print(f'{PrintStyle.red}{type(self).__name__} has no truth dictionary (reference values) to compare to.')
             print(f'Accuracy test aborted.{PrintStyle.reset}')
             return
-        error = MSESeries(index=self.parameters, name=f'MSE from {self.name}', sqrt=sqrt)
+        error = self._series_class(index=self.parameters, name=f'MSE from {self.name}', sqrt=sqrt)
         for param in self.parameters:
             avg = self.mean[param]
             ref = self.truth[param]
             if sqrt:
                 error[param] = np.abs(avg - ref)
             else:
-                error[param] = (avg-ref)**2
+                error[param] = (avg - ref) ** 2
         return error
 
     def plot(self, *args, type: str = 'marginalized_posterior', values: bool = True, **kwargs):
@@ -244,18 +332,23 @@ class SampleDict(SamplesDict):
                 ax = axes[i + i * len(params)]
                 if ax.title.get_text() == '':
                     ax.set_title(self.get_one_dimensional_median_and_error_bar(
-                        par, quantiles=kwargs.get('quantiles', None), **kwargs.get('title_kwargs', {})).string)
+                        par, quantiles=kwargs.get('quantiles'), **kwargs.get('title_kwargs', {})).string)
         return fig
 
 
 class SampleSet(SampleDict):
 
-    def __init__(self, parameters, name: str = None):
-        super().__init__(parameters, name)
+    def __init__(self, parameters, name: str = None,
+                 _series_class=MSESeries, _dataframe_class=MSEDataFrame, jargon: dict = no_jargon):
+        super().__init__(parameters, name, _series_class, jargon=jargon)
         # pesummary.SamplesDict requires parameters to be logged in __init__,
         # but I then need to get rid of them to include mine after initialization
         for key in parameters:
             del self[key]
+
+        self._series_class = _series_class
+        self._dataframe_class = _dataframe_class
+        self.jargon = jargon
 
     def accuracy_test(self, sqrt: bool = False):
         # data = {event: sdict.accuracy_test(sqrt) for event, sdict in self.items()}
@@ -265,94 +358,11 @@ class SampleSet(SampleDict):
                 data[event] = sdict.accuracy_test(sqrt)
                 p_bar.update(1)
 
-        return MSEDataFrame(data=pd.DataFrame(data=data).T, name=f'MSE from {self.name}', sqrt=sqrt)
+        return self._dataframe_class(data=pd.DataFrame(data=data).T, name=f'MSE from {self.name}', sqrt=sqrt)
 
     def __setitem__(self, key, value):
         """ Overrides the SampleDict __setitem__ """
         dict.__setitem__(self, key, value)
-
-
-class MSESeries:
-    """
-    Wrapper class for pandas Series. Stores Mean Squared Error for a SampleDict
-    """
-    def __init__(self, name: str = None, sqrt: bool = False, jargon: dict = None, *args, **kwargs):
-        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.Series):
-            self._df = kwargs['data']
-        else:
-            self._df = pd.Series(name=name, *args, **kwargs)
-        if name is None:
-            name = type(self).__name__
-        self.name = name
-        self.sqrt = sqrt
-        self.jargon = jargon
-
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return getattr(self, attr)
-        return getattr(self._df, attr)
-
-    def __getitem__(self, item):
-        if isinstance(self._df[item], pd.Series):
-            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
-        return self._df[item]
-
-    def __setitem__(self, item, data):
-        self._df[item] = data
-
-    def __repr__(self):
-        temp_df = self._df.to_frame(name=self.name)
-        temp_df['units'] = [get_param_units(param, gw_jargon)[1:-1] for param in self._df.index]
-        if not self.sqrt:
-            temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
-                                else temp_df['units'][param] + r'^2'
-                                for param in self._df.index]
-        return temp_df.to_markdown()
-
-
-class MSEDataFrame:
-    """
-    Wrapper class for pandas DataFrame. Stores Mean Squared Error for a SampleSet
-    """
-    def __init__(self, name: str = None, sqrt: bool = False, *args, **kwargs):
-        if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.DataFrame):
-            self._df = kwargs['data']
-        else:
-            self._df = pd.DataFrame(*args, **kwargs)
-        if name is None:
-            name = type(self).__name__
-        self.name = name
-        self.sqrt = sqrt
-
-    def __getattr__(self, attr):
-        if attr in self.__dict__:
-            return getattr(self, attr)
-        return getattr(self._df, attr)
-
-    def __getitem__(self, item):
-        if isinstance(self._df[item], pd.Series):
-            return MSESeries(data=self._df[item], name=self.name, sqrt=self.sqrt)
-        if isinstance(self._df[item], pd.DataFrame):
-            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
-        return self._df[item]
-
-    def __setitem__(self, item, data):
-        self._df[item] = data
-
-    def __repr__(self):
-        return self._df.__repr__()
-    # def __repr__(self):
-    #     temp_df = self._df.to_frame()
-    #     temp_df['units'] = [get_param_units(param)[1:-1] for param in self._df.index]
-    #     if not self.sqrt:
-    #         temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
-    #                             else temp_df['units'][param] + r'^2'
-    #                             for param in self._df.index]
-    #     return temp_df.to_markdown()
-
-    def mean(self, *args, **kwargs):
-        # May resort to implement these one by one (at least the most useful)
-        return MSESeries(data=self._df.mean(*args, **kwargs), name=self.name, sqrt=self.sqrt)
 
 
 # Could be moved to a config object later
