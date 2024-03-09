@@ -4,11 +4,12 @@ import pandas as pd
 from pprint import pprint
 import torch
 from tqdm import tqdm
+from scipy import stats as st
 
 from .pesum_deps.samples_dict import SamplesDict
 
 from .config import no_jargon
-from .common_utils import PrintStyle
+from .common_utils import PrintStyle, handle_multi_index_format
 from .conversion_utils import get_param_units
 
 # class SampleArray(np.ndarray):
@@ -27,7 +28,11 @@ class MSESeries:
     Wrapper class for pandas Series. Stores Mean Squared Error for a SampleDict
     """
 
-    def __init__(self, name: str = None, sqrt: bool = False, jargon: dict = None, *args, **kwargs):
+    def __init__(self,
+                 name: str = None,
+                 relative: bool = False,
+                 sqrt: bool = True,
+                 jargon: dict = None, *args, **kwargs):
         if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.Series):
             self._df = kwargs['data']
         else:
@@ -35,6 +40,7 @@ class MSESeries:
         if name is None:
             name = type(self).__name__
         self.name = name
+        self.relative = relative
         self.sqrt = sqrt
         self.jargon = jargon
 
@@ -53,12 +59,16 @@ class MSESeries:
 
     def __repr__(self):
         temp_df = self._df.to_frame(name=self.name)
-        temp_df['units'] = [get_param_units(param, self.jargon) for param in
-                            self._df.index]
-        if not self.sqrt:
-            temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'ø'
-                                else temp_df['units'][param] + r'^2'
-                                for param in self._df.index]
+        if self.relative:
+            temp_df['units'] = [r'$\%$' for _ in self._df.index]
+
+        else:
+            temp_df['units'] = [get_param_units(param, self.jargon) for param in
+                                self._df.index]
+            if not self.sqrt:
+                temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'$ø$'
+                                    else temp_df['units'][param] + r'^2'
+                                    for param in self._df.index]
         return temp_df.to_markdown()
 
 
@@ -67,7 +77,14 @@ class MSEDataFrame:
     Wrapper class for pandas DataFrame. Stores Mean Squared Error for a SampleSet
     """
 
-    def __init__(self, name: str = None, sqrt: bool = False, _series_class=MSESeries, *args, **kwargs):
+    def __init__(self,
+                 name: str = None,
+                 relative: bool = False,
+                 sqrt: bool = True,
+                 verbose: dict = None,
+                 jargon: dict = None,
+                 _series_class=MSESeries, *args, **kwargs):
+
         if 'data' in kwargs.keys() and isinstance(kwargs['data'], pd.DataFrame):
             self._df = kwargs['data']
         else:
@@ -75,8 +92,15 @@ class MSEDataFrame:
         if name is None:
             name = type(self).__name__
         self.name = name
+        self.relative = relative
         self.sqrt = sqrt
+        self.jargon = jargon
         self._series_class = _series_class
+
+        if verbose is None:
+            self.verbose = {}
+        else:
+            self.verbose = verbose
 
     def __getattr__(self, attr):
         if attr in self.__dict__:
@@ -84,10 +108,12 @@ class MSEDataFrame:
         return getattr(self._df, attr)
 
     def __getitem__(self, item):
-        if isinstance(self._df[item], pd.Series):
-            return self._series_class(data=self._df[item], name=self.name, sqrt=self.sqrt)
-        if isinstance(self._df[item], pd.DataFrame):
-            return type(self)(data=self._df[item], name=self.name, sqrt=self.sqrt)
+        result = self._df[item]
+        if isinstance(result, pd.Series):
+            return self._series_class(data=result, name=self.name, sqrt=self.sqrt, relative=self.relative)
+        if isinstance(result, pd.DataFrame):
+            return type(self)(data=result, name=self.name, sqrt=self.sqrt,
+                              relative=self.relative, verbose=self.verbose)
         return self._df[item]
 
     def __setitem__(self, item, data):
@@ -95,6 +121,62 @@ class MSEDataFrame:
 
     def __repr__(self):
         return self._df.__repr__()
+
+    def select_parameter(self, parameter):
+
+        result = self._df.loc[(slice(None), parameter), :]
+
+        return type(self)(data=result, name=self.name, sqrt=self.sqrt,
+                          relative=self.relative, verbose=self.verbose)
+
+    def _temp_unit_df(self) -> pd.DataFrame:
+        temp_df = pd.DataFrame.copy(self._df)
+        if self.relative:
+            temp_df['units'] = [r'$\%$' for _ in self._df.index]
+
+        else:
+            temp_df['units'] = [get_param_units(param, self.jargon)
+                                if type(self._df.index) in [pd.Index, pd.RangeIndex]
+                                else get_param_units(param[1], self.jargon)
+                                for param in self._df.index]
+            if not self.sqrt:
+                temp_df['units'] = [temp_df['units'][param] if temp_df['units'][param] == r'$ø$'
+                                    else temp_df['units'][param] + r'^2'
+                                    for param in self._df.index]
+        return temp_df
+
+    def to_markdown(self, units: bool = True, **kwargs):
+
+        if units and self._df.index.name != 'events':
+            # Second condition excludes mono-parameter cross-sections. I cannot recover parameter unit
+            temp_df = self._temp_unit_df()
+        else:
+            temp_df = pd.DataFrame.copy(self._df)
+
+        # title = 'Title_here'
+        # tuples = [('title', temp_df.columns[0]),] + [('', column) for column in temp_df.columns[1:]]
+        # print(tuples)
+        # temp_df.columns = pd.MultiIndex.from_tuples(tuples, names=['title', 'headers'])
+        # temp_df = handle_multi_column_format(temp_df)
+
+        if type(temp_df.index) is pd.MultiIndex:
+            temp_df, kwargs = handle_multi_index_format(temp_df, **kwargs)
+
+        if temp_df.index.name in self.verbose:
+            temp_df.index.name += '<br>' + str(self.verbose[temp_df.index.name])
+
+        names_verbose = [name + '<br>' + str(self.verbose[name])
+                         if name in self.verbose else name for name in temp_df.columns]
+        temp_df.columns = pd.Index(names_verbose)
+
+        # print('|'+self.name.center(len(temp_df.to_markdown(**kwargs).split('\n')[0])-2)+'|')
+        return temp_df.to_markdown(**kwargs)
+
+    def to_latex(self, units: bool = True, **kwargs):
+        if units:
+            temp_df = self._temp_unit_df()
+            return temp_df.to_latex(**kwargs)
+        return self._df.to_latex(**kwargs)
 
     # def __repr__(self):
     #     temp_df = self._df.to_frame()
@@ -105,14 +187,38 @@ class MSEDataFrame:
     #                             for param in self._df.index]
     #     return temp_df.to_markdown()
 
+    def xs(self, *args, **kwargs):
+        result = self._df.xs(*args, **kwargs)
+        if isinstance(result, pd.Series):
+            return self._series_class(data=result, name=self.name, sqrt=self.sqrt, relative=self.relative)
+        if isinstance(result, pd.DataFrame):
+            return type(self)(data=result, name=self.name, sqrt=self.sqrt,
+                              relative=self.relative, verbose=self.verbose)
+
+    def groupby(self, retain_pandas: bool = True, *args, **kwargs):
+        result = self._df.groupby(*args, **kwargs)
+        if retain_pandas:
+            return result
+        return type(self)(data=result, name=self.name, sqrt=self.sqrt,
+                          relative=self.relative, verbose=self.verbose)
+
     def mean(self, *args, **kwargs):
         # May resort to implement these one by one (at least the most useful)
-        return self._series_class(data=self._df.mean(*args, **kwargs), name=self.name, sqrt=self.sqrt)
+        return self._series_class(data=self._df.mean(*args, **kwargs), verbose=self.verbose,
+                                  name=self.name, sqrt=self.sqrt, relative=self.relative)
+
+    def pp_mean(self, sort: bool = False):
+        '''
+        Per-parameter mean
+        '''
+        return type(self)(data=self._df.groupby(level='parameters', sort=sort).mean(),
+                          name=self.name, sqrt=self.sqrt, relative=self.relative, verbose=self.verbose)
 
 
 class SampleDict(SamplesDict):
 
-    def __init__(self, parameters, name: str = None, _series_class=MSESeries, jargon: dict = no_jargon):
+    def __init__(self, parameters, name: str = None,
+                 _series_class=MSESeries, _dataframe_class=MSEDataFrame, jargon: dict = no_jargon):
         super().__init__({param: 0 for param in parameters}, jargon=jargon)
         self._truth = OrderedDict()
         if name is None:
@@ -121,6 +227,7 @@ class SampleDict(SamplesDict):
             self.name = name
 
         self._series_class = _series_class
+        self._dataframe_class = _dataframe_class
 
     def __setitem__(self, key, value):
         SamplesDict.__setitem__(self, key, value)
@@ -302,20 +409,103 @@ class SampleDict(SamplesDict):
             fmt(summary.median), fmt(summary.minus), fmt(summary.plus))
         return summary
 
-    def accuracy_test(self, sqrt: bool = False):
+    def accuracy_test(self, relative: bool = False, sqrt: bool = True) -> MSESeries | None:
         if len(self.truth) == 0:
             print(f'{PrintStyle.red}{type(self).__name__} has no truth dictionary (reference values) to compare to.')
             print(f'Accuracy test aborted.{PrintStyle.reset}')
             return
-        error = self._series_class(index=self.parameters, name=f'MSE from {self.name}', sqrt=sqrt)
+        error = self._series_class(index=self.parameters, name=f'MSE from {self.name}', relative=relative, sqrt=sqrt)
         for param in self.parameters:
             avg = self.mean[param]
             ref = self.truth[param]
             if sqrt:
                 error[param] = np.abs(avg - ref)
+                if relative:
+                    error[param] *= 100 / np.abs(ref)
             else:
                 error[param] = (avg - ref) ** 2
+                if relative:  # TODO: this one I cannot even interpret, might just avoid
+                    error[param] *= 100 / ref ** 2
         return error
+
+    def precision_test(self,
+                       relative: bool = False,
+                       average: bool = False,
+                       median: bool = True, **quantile_kwargs
+                       ) -> MSESeries | tuple[MSESeries, MSESeries] | tuple[MSESeries, MSESeries, MSESeries]:
+        '''
+
+        Gives left and right deviation from median
+
+        Parameters
+        ----------
+        relative : Whether it gives precision divided by reference
+        average: Whether to return the average deviation or both individually
+        median: Whether to return the median
+
+        Returns
+        -------
+
+        '''
+
+        if median:
+            median = self._series_class(index=self.parameters, name=f'Median from {self.name}',
+                                        relative=False, sqrt=True)
+
+        if average:
+            error = self._series_class(index=self.parameters, name=f'Deviation from {self.name}',
+                                       relative=relative, sqrt=True)
+
+            for param in self.parameters:
+                summary = self.get_one_dimensional_median_and_error_bar(param, **quantile_kwargs)
+                error[param] = (summary.minus + summary.plus) / 2
+                if relative:
+                    error[param] *= 100 / np.abs(summary.median)
+
+                if median:
+                    median[param] = summary.median
+
+            if median:
+                return error, median
+
+            return error
+
+        else:
+            error_left = self._series_class(index=self.parameters,
+                                            name=f'Left deviation from {self.name}', relative=relative, sqrt=True)
+            error_right = self._series_class(index=self.parameters,
+                                             name=f'Right Deviation from {self.name}', relative=relative, sqrt=True)
+
+            for param in self.parameters:
+                summary = self.get_one_dimensional_median_and_error_bar(param, **quantile_kwargs)
+                error_left[param] = summary.minus
+                error_right[param] = summary.plus
+                if relative:
+                    error_left[param] *= 100 / np.abs(summary.median)
+                    error_right[param] *= 100 / np.abs(summary.median)
+                if median:
+                    median[param] = summary.median
+
+            if median:
+                return error_left, error_right, median
+            return error_left, error_right
+
+    def full_test(self, relative: bool = False, average: bool = False, median: bool = True, **quantile_kwargs):
+        data = {'accuracy': self.accuracy_test(relative=relative, sqrt=True)}
+        if not average:
+            precisions = self.precision_test(relative=relative, average=average, median=median, **quantile_kwargs)
+            if median:
+                data.update({'median': precisions[2]})
+            data.update({'precision_left': precisions[0], 'precision_right': precisions[1]})
+        elif average and median:
+            precision, median = self.precision_test(
+                relative=relative, average=average, median=median, **quantile_kwargs)
+            data.update({'median': median, 'precision': precision})
+        else:
+            data.update(
+                {'precision': self.precision_test(relative=relative, average=average, median=median, **quantile_kwargs)}
+            )
+        return self._dataframe_class(data=data, name=f'deviations from {self.name}', sqrt=True, relative=relative)
 
     def plot(self, *args, type: str = 'marginalized_posterior', values: bool = True, **kwargs):
         fig = super().plot(type=type, *args, **kwargs)
@@ -350,15 +540,124 @@ class SampleSet(SampleDict):
         self._dataframe_class = _dataframe_class
         self.jargon = jargon
 
-    def accuracy_test(self, sqrt: bool = False):
+    def accuracy_test(self, relative: bool = False, sqrt: bool = True):
         # data = {event: sdict.accuracy_test(sqrt) for event, sdict in self.items()}
         data = OrderedDict()
         with tqdm(total=len(self.keys()), desc=f'Running accuracy test for {self.name}', ncols=100) as p_bar:
             for event, sdict in self.items():
-                data[event] = sdict.accuracy_test(sqrt)
+                data[event] = sdict.accuracy_test(relative, sqrt)
                 p_bar.update(1)
 
-        return self._dataframe_class(data=pd.DataFrame(data=data).T, name=f'MSE from {self.name}', sqrt=sqrt)
+        return self._dataframe_class(data=pd.DataFrame(data=data).T,
+                                     name=f'MSE from {self.name}', sqrt=sqrt, relative=relative)
+
+    def precision_test(self,
+                       relative: bool = False,
+                       average: bool = True,
+                       median: bool = True,
+                       **quantile_kwargs):
+        # data = {event: sdict.accuracy_test(sqrt) for event, sdict in self.items()}
+        data = OrderedDict()
+        with tqdm(total=len(self.keys()), desc=f'Running precision test for {self.name}', ncols=100) as p_bar:
+            for event, sdict in self.items():
+                data[event] = sdict.precision_test(relative, average, median, **quantile_kwargs)
+                p_bar.update(1)
+
+        df_median = None
+        if median:
+            medians = {event: data[event][-1] for event in data.keys()}
+            df_median = self._dataframe_class(data=pd.DataFrame(data=medians).T,
+                                              name=f'Median from {self.name}', sqrt=True, relative=False)
+        if average:
+            precision = {event: data[event][0] for event in data.keys()}
+            df_precision = self._dataframe_class(data=pd.DataFrame(data=precision).T,
+                                                 name=f'Deviation from {self.name}', sqrt=True, relative=relative)
+            if median:
+                return df_precision, df_median
+            return df_precision
+        else:
+            data_left = {event: data[event][0] for event in data.keys()}
+            data_right = {event: data[event][1] for event in data.keys()}
+
+            df_left = self._dataframe_class(data=pd.DataFrame(data=data_left).T,
+                                            name=f'Left deviation from {self.name}', sqrt=True, relative=relative)
+            df_right = self._dataframe_class(data=pd.DataFrame(data=data_right).T,
+                                             name=f'Right deviation from {self.name}', sqrt=True, relative=relative)
+            if median:
+                return df_left, df_right, df_median
+            return df_left, df_right
+
+    def full_test(self,
+                  relative: bool = False,
+                  average: bool = False,
+                  median: bool = True,
+                  truth: bool = True,
+                  verbose: bool = True,
+                  **quantile_kwargs):
+
+        if quantile_kwargs is None:
+            quantile_kwargs = {}
+        if 'quantiles' not in quantile_kwargs:
+            quantile_kwargs['quantiles'] = (0.16, 0.84)
+
+        verbose_bool = verbose
+
+        accuracy_df = self.accuracy_test(relative=relative, sqrt=True)
+        data = {'accuracy': accuracy_df.values.flatten()}
+        verbose = {'accuracy': '(MSE)', 'parameters': f'({self.name})'}
+
+        if hasattr(self, 'data_name'):
+            verbose['events'] = f'({self.data_name})'
+
+        if not average:
+            verbose.update({'precision_left': f'({abs(st.norm.ppf(quantile_kwargs["quantiles"][0])):.1f}'
+                                              + r'$\sigma$)',
+                            'precision_right': f'({abs(st.norm.ppf(quantile_kwargs["quantiles"][0])):.1f}'
+                                               + r'$\sigma$)'})
+            if median:
+                left_df, right_df, median_df = self.precision_test(relative, average, median, **quantile_kwargs)
+                data.update({'median': median_df.values.flatten(),
+                             'precision_left': left_df.values.flatten(),
+                             'precision_right': right_df.values.flatten()})
+            else:
+                left_df, right_df = self.precision_test(relative, average, median, **quantile_kwargs)
+                data.update({'precision_left': left_df.values.flatten(),
+                             'precision_right': right_df.values.flatten()})
+        else:
+            verbose.update({'precision': f'''({((abs(st.norm.ppf(quantile_kwargs["quantiles"][0])) +
+                                                 abs(st.norm.ppf(quantile_kwargs["quantiles"][1]))) / 2):.1f}'''
+                                         + r'$\sigma$)'})
+            if median:
+                precision_df, median_df = self.precision_test(relative, average, median, **quantile_kwargs)
+                data.update({'median': median_df.values.flatten(),
+                             'precision': precision_df.values.flatten()})
+            else:
+                precision_df = self.precision_test(relative, average, median, **quantile_kwargs)
+                data.update({'precision': precision_df.values.flatten()})
+
+        if truth:
+            data.update({'truth': [sampledict.truth[param]
+                                   for sampledict in self.values() for param in self.parameters]})
+
+        # indexes = [
+        #     np.array(accuracy_df.index.repeat(len(self.parameters))),
+        #     np.array(self.parameters * accuracy_df.index.size)
+        #
+        # ]
+        if not verbose_bool:
+            verbose = None
+        indexes = pd.MultiIndex.from_product([accuracy_df.index, self.parameters], names=['events', 'parameters'])
+        df = self._dataframe_class(data=pd.DataFrame(data=data, index=indexes),
+                                   name=f'deviations from {self.name}', sqrt=True,
+                                   relative=relative, verbose=verbose)
+        # print(df.verbose)
+        cols_to_move = []  # Update later for truth possibility
+        if median:
+            cols_to_move.append('median')
+        if truth:
+            cols_to_move.append('truth')
+        df._df = df._df[cols_to_move + [col for col in df.columns if col not in cols_to_move]]
+        return df
 
     def __setitem__(self, key, value):
         """ Overrides the SampleDict __setitem__ """

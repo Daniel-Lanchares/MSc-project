@@ -1,3 +1,4 @@
+import re
 import time
 import torch
 import numpy as np
@@ -178,6 +179,40 @@ class Estimator:
             context = context.expand(1, *context.shape)
         return self.model.sample_and_log_prob(num_samples, context)
 
+    def get_training_stage_seeds(self, stage: int = -1) -> list[int] | None:
+        if len(self.metadata['train_history']) == 0:
+            return None
+        if stage == -1:
+            stage = len(self.metadata['train_history']) - 1
+        datasets = re.findall(r'\d+', self.metadata['train_history'][f'stage {stage}']['trainset'])
+        return [int(data) for data in datasets]
+
+    def dataset_choice(self,
+                       seed: int = 0,
+                       size: int = 15,
+                       data_pool: tuple[int] = (0, 45),
+                       new_data_indeces: int | list[int] | list[slice] = None) -> list[int] | np.ndarray:
+        # Select the datasets randomly from 0 to 45 and substitute given positions with previously unseen datasets
+        previous_seeds = self.get_training_stage_seeds(stage=-1)
+        if previous_seeds is None:
+            # First time training
+            rng = np.random.default_rng(seed)
+            return rng.choice(np.arange(*data_pool), size=size, replace=False)
+        #TODO Continue, and study case match here.
+        if type(new_data_indeces) == int:
+            new_data_slices = [slice(new_data_indeces),]
+        elif type(new_data_indeces) == list[int]:
+            new_data_slices = [slice(index) for index in new_data_indeces]
+        elif type(new_data_indeces) == list[slice]:
+            new_data_slices = new_data_indeces
+        else:
+            raise NotImplementedError(f'Datatype {type(new_data_indeces)} not supported')
+
+        previous_seeds = np.array(previous_seeds)
+        for s in new_data_slices:
+            new_value = None # Find value not in previous seeds
+            previous_seeds[s] = new_value
+
     def preprocess(self, trainset: TrainSet | np.ndarray):
         if isinstance(trainset, np.ndarray):
             # if it is an array its context from the sampling methods, not an entire set
@@ -285,6 +320,8 @@ class Estimator:
         # Define the corresponding SampleSet child object
         sset_obj = _class_dict['sample_set']
         sset = sset_obj(params, name)
+        if hasattr(data, 'name'):
+            sset.data_name = data.name
         with tqdm(total=len(data.index), desc=f'Creating SampleSet {name}', ncols=100) as p_bar:
             for event in data.index:
                 sset[str(event)] = Estimator.sample_dict(self,

@@ -1,7 +1,7 @@
 from pathlib import Path
 import numpy as np
 
-from dtempest.core import Estimator
+from dtempest.gw import CBCEstimator
 
 from dtempest.core.common_utils import load_rawsets, seeds2names, get_extractor
 from dtempest.gw.conversion import convert_dataset
@@ -11,7 +11,7 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '3. 6 parameter model'
-traindir = train_dir / 'training_test_4'
+traindir = train_dir / 'training_test_5'
 
 params_list = [
     'chirp_mass',
@@ -26,14 +26,14 @@ model, weights, pre_process = get_extractor('resnet18')
 extractor_config = {
     'n_features': 512,
     'base_net': model(weights=weights)  # To allow different weights. Can be
-    }
+}
 
 train_config = {
-    'num_epochs': 30,
+    'num_epochs': 10,
     'checkpoint_every_x_epochs': 5,  # Not yet implemented
     'batch_size': 256,  # Almost no effect on RAM compared, but proportional to chance of nan loss at beginning
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.00003,#0.00025,
+    'learning_rate': 0.00075,  # 0.00025,
     'grad_clip': None,
     # 'sched_kwargs': {
     #     'type': 'StepLR',
@@ -41,7 +41,7 @@ train_config = {
     #     'gamma': 0.8,
     #     'verbose': True
     #     }
-    }
+}
 
 flow_config = {  # This config seems to top at log_prob ~14.5, tough it may slowly improve
     'input_dim': len(params_list),
@@ -64,7 +64,7 @@ flow_config = {  # This config seems to top at log_prob ~14.5, tough it may slow
     }
 }
 
-rng = np.random.default_rng(4)
+rng = np.random.default_rng(5)
 seeds = rng.choice(np.arange(0, 45), size=1, replace=False)
 print(seeds)
 '''
@@ -73,6 +73,9 @@ print(seeds)
 2: [39 16 24 13 33 14  8 30 29 42 43  3 10 37 25]
 3: [32 18 13 26 28 11  1 22  8  6  2 25 21  3  5]
 4: [36 30 32  3 26 11 43 22 38 17 35 44 15 24 29]
+5: [27 24 16 38  0 10  2 23 18 41 11 25 17  5 20]
+6:
+7:
 '''
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
@@ -81,19 +84,41 @@ dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
 dataset = convert_dataset(dataset, params_list)
 
 '''Flow creation'''
-# flow = Estimator(params_list, flow_config, extractor_config, name='v3.4.0',
-#                  workdir=traindir, mode='extractor+flow', preprocess=pre_process)
+# flow = CBCEstimator(params_list, flow_config, extractor_config, name='v3.5.0',
+#                     workdir=traindir, mode='extractor+flow', preprocess=pre_process)
 
 '''Training continuation of previous model'''
-flow = Estimator.load_from_file(traindir/'overfitting_test.pt')
-flow.rename('overfitting_test')
+flow = CBCEstimator.load_from_file(traindir / 'v3.5.5.pt')
+print(flow.get_training_stage_seeds())
+# flow.rename('v3.5.5')
 
 # from pprint import pprint
+#
 # pprint(flow.metadata['train_history'])
 
+# flow.train(dataset, traindir, train_config)
+# flow.save_to_file(traindir / f'{flow.name}.pt')
 
-flow.train(dataset, traindir, train_config)
-flow.save_to_file(traindir/f'{flow.name}.pt')
+'''
+3.5.0
+Average: 33.3695, Delta: -1.62404 (-4.64098%)
+
+3.5.1
+Average: 17.7282, Delta: -0.808865 (-4.3635%)
+
+3.5.2
+Average: 15.1696, Delta: -0.0633874 (-0.416119%)
+
+3.5.3
+Average: 15.2278, Delta: -0.0908151 (-0.592842%)
+
+3.5.4
+Average: 15.0174, Delta: -0.0276866 (-0.184024%)
+
+3.5.5
+Average: 14.8728, Delta: -0.0498876 (-0.334307%)
+'''
+
 
 '''
 3.3.1

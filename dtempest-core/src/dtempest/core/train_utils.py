@@ -66,7 +66,6 @@ class TrainSet:
 
         return TrainSet(data=df, name=name)
 
-
     def save(self, path, lightweight: bool = False):
         # Trainset loads and saves its internal DataFrame, not the TrainSet itself
         # lightweight saves the dataframe contents only. loses the name but is much more compact

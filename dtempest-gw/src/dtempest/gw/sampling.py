@@ -9,11 +9,11 @@ class CBCMSESeries(MSESeries):
 
 
 class CBCMSEDataFrame(MSEDataFrame):
-    __init__ = partialmethod(MSEDataFrame.__init__, _series_class=CBCMSESeries)
+    __init__ = partialmethod(MSEDataFrame.__init__, jargon=cbc_jargon, _series_class=CBCMSESeries)
 
 
 class CBCSampleDict(SampleDict):
-    __init__ = partialmethod(SampleDict.__init__, _series_class=CBCMSESeries, jargon=cbc_jargon)
+    __init__ = partialmethod(SampleDict.__init__, jargon=cbc_jargon, _series_class=CBCMSESeries)
 
     @property
     def plotting_map(self):
