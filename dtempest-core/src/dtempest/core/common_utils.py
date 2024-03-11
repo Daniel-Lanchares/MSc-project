@@ -1,3 +1,4 @@
+import os
 import torch
 import numpy as np
 import pandas as pd
@@ -133,6 +134,48 @@ def load_rawsets(directory, names: list[str], verbose: bool = True):
     return RawSet(dataset, name='+'.join(names))
 
 
+def load_losses(directory: str | Path,
+                model: str = None,
+                stages: int | list[int] = None,
+                validation: bool = False,
+                verbose: bool = True) -> tuple[np.array, np.array] | tuple[np.array, np.array, np.array]:
+
+    subdirs = [f.name for f in os.scandir(directory) if f.is_dir()]
+    if stages is None:
+        chosen_subs = {int(subdir.split('_')[-1]): subdir for subdir in subdirs}
+    else:
+        if not hasattr(stages, '__iter__'):
+            stages = [stages, ]
+        chosen_subs = {int(subdir.split('_')[-1]): subdir for subdir in subdirs if int(subdir.split('_')[-1]) in stages}
+
+    if model is not None:
+        chosen_subs = {stage: subdir for stage, subdir in chosen_subs.items() if int(subdir.split('_')[-3]) == model}
+
+    epochs = []
+    losses = []
+    validations = np.array([])
+    for i, (stage, sub) in enumerate(chosen_subs.items()):
+        epoch, loss = torch.load(Path(directory) / sub / 'loss_data.pt')
+        if i == 0:
+            epochs = np.concatenate((epochs, epoch))
+
+        else:
+            epochs = np.concatenate((epochs, epoch + epochs[-1]*np.ones_like(epoch)))
+
+        losses = np.concatenate((losses, loss))
+        if validation:
+            try:
+                validations = np.concatenate((validations, torch.load(Path(directory) / sub / 'validation_data.pt')[1]))
+            except FileNotFoundError as exc:
+                print(f'Validation not found in {sub}')
+                print(exc)
+        if verbose:
+            print(f'Loaded {sub}')
+    if validation:
+        return epochs, losses, validations
+    return epochs, losses
+
+
 def handle_multi_index_format(temp_df: pd.DataFrame,
                               mask_type: str = 'events',
                               show_reset_index: bool = False,
@@ -175,5 +218,3 @@ def handle_multi_index_format(temp_df: pd.DataFrame,
         format_kwargs['index'] = False
 
     return temp_df, format_kwargs
-
-

@@ -236,8 +236,15 @@ class Estimator:
         self.metadata['train_history'][f'stage {stage_num}'].update({'training_time': train_time})
         print(f'train_time: {train_time} hours')
 
-    def train(self, trainset: TrainSet | str | Path, traindir, train_config, preprocess: bool = True,
-              save_loss: bool = True, make_plot: bool = True):
+    def train(self,
+              trainset: TrainSet | str | Path,
+              traindir, train_config,
+              validation: TrainSet | str | Path = None,
+              preprocess: bool = True,
+              save_loss: bool = True,
+              make_plot: bool = True):
+
+        # TODO: default train_config attributes
 
         trainset = check_format(trainset)
         traindir = Path(traindir)
@@ -253,8 +260,12 @@ class Estimator:
         # FeederDataset is a train-only oriented object meant to work with Pytorch's DataLoader
         trainset = DataLoader(FeederDataset(trainset), batch_size=train_config['batch_size'])
 
+        if validation is not None:
+            validation = self.preprocess(check_format(validation))
+            validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
+
         t1 = time.time()
-        epoch, losses = train_model(self.model, trainset, train_config)
+        epoch, losses, vali_losses = train_model(self.model, trainset, train_config, validation)
         t2 = time.time()
         self._append_stage_training_time(n, (t2 - t1) / 3600)
 
@@ -265,6 +276,8 @@ class Estimator:
             lossdir.mkdir(parents=True, exist_ok=True)
 
             torch.save((epoch, losses), lossdir / 'loss_data.pt')
+            if validation is not None:
+                torch.save((epoch, vali_losses), lossdir / 'validation_data.pt')
 
         if make_plot:
             # Redundancy in lossdir creation to please Pytorch's checker
@@ -275,10 +288,16 @@ class Estimator:
             loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
 
             plt.figure(figsize=(10, 8))
-            plt.plot(epoch_data_avgd, loss_data_avgd, 'o--')
+            plt.plot(epoch_data_avgd, loss_data_avgd, 'o--', label='loss')
+
+            if validation is not None:
+                validation_data_avgd = vali_losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
+                plt.plot(epoch_data_avgd, validation_data_avgd, 'o--', label='validation')
+
             plt.xlabel('Epoch Number')
             plt.ylabel('Log Probability')
             plt.title('Log Probability (avgd per epoch)')
+            plt.legend()
             plt.savefig(lossdir / f'loss_plot_{self.name}_stage_{n}.png', format='png')
 
     def sample_dict(self,
