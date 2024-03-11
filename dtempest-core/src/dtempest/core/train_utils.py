@@ -166,6 +166,21 @@ def train_model(model, dataloader, train_config, valiloader):
             else:
                 print(f'\nAverage valid: {temp_loss[0]:.6}\n')
 
+        if valiloader is not None:
+            print(f'Validation of epoch {epoch + 1:3d}')
+            for i, (x, y) in enumerate(valiloader):
+                loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
+
+                print(f'Epoch {epoch + 1:3d}, batch {i:3d}: {loss_value.item():.4}')
+                vali_losses.append(loss_value.item())
+
+            temp_loss = np.array(vali_losses).reshape(epoch + 1, -1).mean(axis=1)
+            if epoch > 0:
+                print(f'\nAverage: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
+                      f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
+            else:
+                print(f'\nAverage: {temp_loss[0]:.6}\n')
+
         # Update Scheduler
         if sched is not None:
             sched.step()  # TODO Implement possibility for schedulers that take loss values. Not urgent
