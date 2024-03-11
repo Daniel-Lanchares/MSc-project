@@ -10,14 +10,14 @@ import dtempest.core.flow_utils as trans
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
-train_dir = files_dir / 'Examples' / '4. 7 parameter model'
+train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
 traindir = train_dir / 'training_test_1'
 
 params_list = [
     'chirp_mass',
     'mass_ratio',
     'chi_eff',
-    'd_L',
+    'luminosity_distance',
     'theta_jn',
     'ra',
     'dec'
@@ -32,9 +32,9 @@ extractor_config = {
 train_config = {
     'num_epochs': 10,
     'checkpoint_every_x_epochs': 5,  # Not yet implemented
-    'batch_size': 128,  # IDEA: Start with small, increase without changing datasets. Seems to work great
+    'batch_size': 32,  # IDEA: Start with small, increase without changing datasets. Seems to work great
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.0005,  # 0.00025,
+    'learning_rate': 0.001,  # 0.00025,
     'grad_clip': None,
     # 'sched_kwargs': {
     #     'type': 'StepLR',
@@ -44,15 +44,15 @@ train_config = {
     #     }
 }
 
-flow_config = {  # This config seems to top at log_prob ~14.5, tough it may slowly improve
+flow_config = {  # Smaller flow, hopefully doesn't overfit
     'input_dim': len(params_list),
     'context_dim': extractor_config['n_features'],
-    'num_flow_steps': 5,  # Adding more seemed to help slightly
+    'num_flow_steps': 3,
 
     'base_transform': trans.mask_affine_autoreg,
     'base_transform_kwargs': {
         'hidden_dim': 2,
-        'num_transform_blocks': 3,
+        'num_transform_blocks': 2,
         'use_batch_norm': True
     },
     'middle_transform': trans.random_perm_and_lulinear,
@@ -66,10 +66,11 @@ flow_config = {  # This config seems to top at log_prob ~14.5, tough it may slow
 }
 
 rng = np.random.default_rng(0)
-seeds = rng.choice(np.arange(0, 45), size=15, replace=False)
+seeds = rng.choice(np.arange(0, 45), size=20, replace=False)
+vali_seeds = 999
 print(seeds)
 '''
-0: [ 9 20 38 43 10 32 26  1 21 16 44  2  0  6 40]
+0: [33  9  7 44 14 38 24 39 17 23  5 28 26  0 42  2 22 19 29  1]
 1: [11 35 24  5 17  1 32 43 44  9 14 16 36 12 30]
 2: [39 16 24 13 33 14  8 30 29 42 43  3 10 37 25]
 3: [32 18 13 26 28 11  1 22  8  6  2 25 21  3  5]
@@ -80,50 +81,56 @@ print(seeds)
 '''
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
+valiset = load_rawsets(rawdat_dir, seeds2names(vali_seeds))
+dataset.change_parameter_name('d_L', to='luminosity_distance')
+valiset.change_parameter_name('d_L', to='luminosity_distance')
 
 # Convert to Trainset object (pd.DataFrame based instead of OrderedDict based)
 dataset = convert_dataset(dataset, params_list)
+valiset = convert_dataset(valiset, params_list)
 
 '''Flow creation'''
-# flow = CBCEstimator(params_list, flow_config, extractor_config, name='v4.0.0',
-#                     workdir=traindir, mode='extractor+flow', preprocess=pre_process)
+flow = CBCEstimator(params_list, flow_config, extractor_config, name='Spv2.1.0',
+                    workdir=traindir, mode='extractor+flow', preprocess=pre_process)
 
 '''Training continuation of previous model'''
-flow = CBCEstimator.load_from_file(traindir / 'v4.1.2.pt')
-flow.rename('v4.1.3')
+# flow = CBCEstimator.load_from_file(traindir / 'Spv2.0.5.pt')
+# flow.rename('valid_test')
 for param in flow.model._embedding_net.parameters():
     param.requires_grad = True
+# print(flow.get_training_stage_seeds())
 
 # from pprint import pprint
 #
 # pprint(flow.metadata['train_history'])
 
-flow.train(dataset, traindir, train_config)
+flow.train(dataset, traindir, train_config, valiset)
 flow.save_to_file(traindir / f'{flow.name}.pt')
 
-'''
-4.0.2
-Average: 15.5887, Delta: 0.00333567 (0.0214025%)
 
-4.1.2
-Average: 14.3203, Delta: -0.214424 (-1.47525%)
+''' Loss log
 
-4.1.3
-Average: 11.8997, Delta: -0.38997 (-3.17315%)
+2.1.0
+Average train: 16.7966, Delta: -0.367924 (-2.14351%) 
+Average valid: 18.2569, Delta: -0.645987 (-3.4174%)
 
-4.0.0
-Average ~31
 
-4.0.1
-Average: 15.8693, Delta: -0.129462 (-0.809197%)
+2.0.0
+Average: 19.1615, Delta: -0.376543 (-1.92723%)
 
-4.0.2
-Average: 15.5887, Delta: 0.00333567 (0.0214025%)
+2.0.1
+Average: 16.599, Delta: -0.105823 (-0.633487%)
 
-4.0.3
-Average: ~15.28, Delta: ~-0.11 
+2.0.2 (Introduced embedding net ----- search term in other log)
 
-4.0.4
-Average: 15.2234, Delta: -0.0198963 (-0.130525%)
-Average: 14.9474, Delta: -0.00813382 (-0.0543865%)
+Average: 14.9293, Delta: -0.16511 (-1.09384%)
+
+2.0.3
+Average: 12.8223, Delta: -0.363184 (-2.75441%)
+
+2.0.4
+Average: 11.0735, Delta: -0.599326 (-5.13436%)
+
+2.0.5
+Average: 10.2084, Delta: -0.405751 (-3.82274%)
 '''

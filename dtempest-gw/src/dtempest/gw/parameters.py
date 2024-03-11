@@ -118,7 +118,12 @@ unit_dict = {  # MANY MISSING #TODO
     'NAP': r'$ø$',
     'chi_eff': r'$ø$',
     'chi_p': r'$ø$',
+    'chi_1': r'$ø$',
+    'chi_2': r'$ø$',
+    'chi_1_in_plane': r'$ø$',
+    'chi_2_in_plane': r'$ø$',
     'd_L': r'$Mpc$',
+    'luminosity_distance': r'$Mpc$',
     'ra': r'$rad$',
     'dec': r'$rad$'
 }

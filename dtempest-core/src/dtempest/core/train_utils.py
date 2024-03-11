@@ -95,6 +95,8 @@ class FeederDataset(Dataset):
         if isinstance(trainset, str | Path):
             trainset = torch.load(trainset)
 
+        # print([type(tens)for tens in trainset['labels']])
+
         labels = torch.cat([torch.reshape(tens, (1, len(tens))) for tens in trainset['labels']])
 
         self.x, self.y = (torch.cat(list(trainset.values[:, 0])), labels)
@@ -106,9 +108,8 @@ class FeederDataset(Dataset):
         return self.x[ix], self.y[ix]
 
 
-def train_model(model, dataloader, train_config):
+def train_model(model, dataloader, train_config, valiloader):
     n_epochs = train_config['num_epochs']
-    checkpt = train_config['checkpoint_every_x_epochs']
     lr = train_config['learning_rate']
     opt = opt_dict[train_config['optim_type']](model.parameters(), lr)
 
@@ -118,9 +119,13 @@ def train_model(model, dataloader, train_config):
     else:
         sched = None
 
+    if 'checkpoint_every_x_epochs' in train_config and train_config['checkpoint_every_x_epochs'] is not None:
+        checkpt = train_config['checkpoint_every_x_epochs']
+
     # Train model
     losses = []
     epochs = []
+    vali_losses = []
     for epoch in range(n_epochs):
         print(f'Epoch {epoch + 1}')
         N = len(dataloader)
@@ -146,13 +151,27 @@ def train_model(model, dataloader, train_config):
         else:
             print(f'\nAverage: {temp_loss[0]:.6}\n')
 
+        if valiloader is not None:
+            print(f'Validation of epoch {epoch + 1:3d}')
+            for i, (x, y) in enumerate(valiloader):
+                loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
+
+                print(f'Epoch {epoch + 1:3d}, batch {i:3d}: {loss_value.item():.4}')
+                vali_losses.append(loss_value.item())
+
+            temp_loss = np.array(vali_losses).reshape(epoch + 1, -1).mean(axis=1)
+            if epoch > 0:
+                print(f'\nAverage: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
+                      f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
+            else:
+                print(f'\nAverage: {temp_loss[0]:.6}\n')
+
         # Update Scheduler
-        if sched is None:
-            continue
-        else:
-            sched.step()  # TODO Implement possibility for schedulers that take loss values
+        if sched is not None:
+            sched.step()  # TODO Implement possibility for schedulers that take loss values. Not urgent
 
     # For manually variable lr
     # for g in optim.param_groups:
     #     g['lr'] = 0.001
-    return np.array(epochs), np.array(losses)
+
+    return np.array(epochs), np.array(losses), np.array(vali_losses)

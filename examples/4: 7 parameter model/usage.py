@@ -15,24 +15,24 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '4. 7 parameter model'
-traindir0 = train_dir / 'training_test_0'
+traindir0 = train_dir / 'training_test_1'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'v4.0.4.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'v4.1.3.pt')
 flow0.change_parameter_name('d_L', to='luminosity_distance')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
 
-seed = 999
+seed = 32
 event = f'{seed}.00001'
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
-sset0 = flow0.sample_set(3000, trainset[:][:10], name=f'flow {flow0.name}')
+sset0 = flow0.sample_set(3000, trainset[:][:], name=f'flow {flow0.name}')
 
 full = sset0.full_test()
 full_rel = sset0.full_test(relative=True)
@@ -68,15 +68,15 @@ sdict = flow0.sample_dict(3000, context=image, reference=label)
 
 
 # print(both.xs('chirp_mass', level='parameters'))
-print(full.pp_mean().loc[['chirp_mass']].to_markdown(tablefmt='github'))
+print(full.pp_mean().to_markdown(tablefmt='github'))
 # Idea: The model is incredible at estimating the average of a parameter over the entire dataset
 # Idea: I suppose due to being trained with datasets with identical mass distribution (uniform 5 to 100 for each m)
 # Idea: Might be interesting to make a dataset with different distributions
 print()
 # cross = full.xs('chirp_mass', level='parameters')
 # print(cross.to_markdown(tablefmt='github'))
-cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
-print(cross.to_markdown(tablefmt='github'))
+# cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
+# print(cross.to_markdown(tablefmt='github'))
 
 # for asymmetric precision
 # print(precision[0].mean(axis=0))
@@ -90,6 +90,60 @@ plt.show()
 '''
 Dataset 999
 
+|                     |   MSE from v4.0.2 | units          |
+|:--------------------|------------------:|:---------------|
+| chirp_mass          |         12.2      | $M_{\odot}$    |
+| mass_ratio          |          0.204297 | $ø$            |
+| chi_eff             |          0.189478 | $ø$            |
+| luminosity_distance |        644.287    | $\mathrm{Mpc}$ |
+| theta_jn            |          0.636337 | $\mathrm{rad}$ |
+| ra                  |          1.53791  | $\mathrm{rad}$ |
+| dec                 |          0.548092 | $\mathrm{rad}$ |
+
+tensor(15.2228, grad_fn=<NegBackward0>)
+
+| parameters<br>(flow v4.1.2)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                    |   48.1365    |   46.8531    |            8.3043   |                         10.193    |                          10.1076   | $M_{\odot}$    |
+| mass_ratio                    |    0.600918  |    0.613444  |            0.18042  |                          0.22674  |                           0.219479 | $ø$            |
+| chi_eff                       |   -0.0576723 |    0.0106512 |            0.191418 |                          0.244305 |                           0.242001 | $ø$            |
+| luminosity_distance           | 1152.03      | 1502.02      |          617.964    |                        426.783    |                         513.483    | $\mathrm{Mpc}$ |
+| theta_jn                      |    1.4518    |    1.54645   |            0.6443   |                          0.769106 |                           0.761157 | $\mathrm{rad}$ |
+| ra                            |    3.0434    |    3.17589   |            1.43603  |                          1.58686  |                           1.62873  | $\mathrm{rad}$ |
+| dec                           |   -0.106283  |    0.016705  |            0.493104 |                          0.575472 |                           0.573207 | $\mathrm{rad}$ |
+
+tensor(11.8013, grad_fn=<NegBackward0>)
+
+| parameters<br>(flow v4.1.3)   |      median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-------------------------------|-------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                    |   45.4124   |   46.8531    |            7.74845  |                          5.38311  |                           5.29751  | $M_{\odot}$    |
+| mass_ratio                    |    0.588817 |    0.613444  |            0.190866 |                          0.171185 |                           0.169078 | $ø$            |
+| chi_eff                       |    0.165267 |    0.0106512 |            0.227852 |                          0.174266 |                           0.174446 | $ø$            |
+| luminosity_distance           | 1284.82     | 1502.02      |          584.479    |                        321.987    |                         352.251    | $\mathrm{Mpc}$ |
+| theta_jn                      |    1.63607  |    1.54645   |            0.634274 |                          0.757236 |                           0.766714 | $\mathrm{rad}$ |
+| ra                            |    2.74549  |    3.17589   |            1.37927  |                          1.01841  |                           1.0368   | $\mathrm{rad}$ |
+| dec                           |   -0.102591 |    0.016705  |            0.495646 |                          0.386932 |                           0.387373 | $\mathrm{rad}$ |
+
+tensor(9.9919, grad_fn=<NegBackward0>)
+'''
+# Textbook overfitting. Hope is model complexity and not the dataset...
+'''Dataset 32 (part of training)
+
+| parameters<br>(flow v4.1.3)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                    |   45.8335    |   46.432     |            4.37108  |                          5.30727  |                           5.24347  | $M_{\odot}$    |
+| mass_ratio                    |    0.600429  |    0.595741  |            0.13058  |                          0.171174 |                           0.168904 | $ø$            |
+| chi_eff                       |    0.171276  |    0.015586  |            0.190818 |                          0.175478 |                           0.175551 | $ø$            |
+| luminosity_distance           | 1302.02      | 1450.36      |          318.94     |                        318.858    |                         347.443    | $\mathrm{Mpc}$ |
+| theta_jn                      |    1.64835   |    1.58521   |            0.633538 |                          0.760502 |                           0.772151 | $\mathrm{rad}$ |
+| ra                            |    2.7404    |    3.10922   |            0.872891 |                          1.0179   |                           1.03461  | $\mathrm{rad}$ |
+| dec                           |   -0.0993247 |    0.0304754 |            0.332591 |                          0.383403 |                           0.383218 | $\mathrm{rad}$ |
+
+tensor(11.0885, grad_fn=<NegBackward0>)
+'''
+
+# Pre-resnet reconditioning attempts
+'''
 |                     |   MSE from v4.0.0 | units          |
 |:--------------------|------------------:|:---------------|
 | chirp_mass          |       2.43196e+09 | $M_{\odot}$    |
