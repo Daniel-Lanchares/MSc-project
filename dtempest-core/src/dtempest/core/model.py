@@ -265,7 +265,7 @@ class Estimator:
             validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
 
         t1 = time.time()
-        epoch, losses, vali_losses = train_model(self.model, trainset, train_config, validation)
+        epochs, losses, vali_epochs, vali_losses = train_model(self.model, trainset, train_config, validation)
         t2 = time.time()
         self._append_stage_training_time(n, (t2 - t1) / 3600)
 
@@ -275,24 +275,25 @@ class Estimator:
             lossdir = traindir / f'loss_data_{self.name}_stage_{n:0{zero_pad}}'
             lossdir.mkdir(parents=True, exist_ok=True)
 
-            torch.save((epoch, losses), lossdir / 'loss_data.pt')
+            torch.save((epochs, losses), lossdir / 'loss_data.pt')
             if validation is not None:
-                torch.save((epoch, vali_losses), lossdir / 'validation_data.pt')
+                torch.save((vali_epochs, vali_losses), lossdir / 'validation_data.pt')
 
         if make_plot:
             # Redundancy in lossdir creation to please Pytorch's checker
             lossdir = traindir / f'loss_data_{self.name}_stage_{n:0{zero_pad}}'
             lossdir.mkdir(parents=True, exist_ok=True)
 
-            epoch_data_avgd = epoch.reshape(train_config['num_epochs'], -1).mean(axis=1)
-            loss_data_avgd = losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
+            epoch_data_avgd = epochs.mean(axis=1)
+            loss_data_avgd = losses.mean(axis=1)
 
             plt.figure(figsize=(10, 8))
             plt.plot(epoch_data_avgd, loss_data_avgd, 'o--', label='loss')
 
             if validation is not None:
-                validation_data_avgd = vali_losses.reshape(train_config['num_epochs'], -1).mean(axis=1)
-                plt.plot(epoch_data_avgd, validation_data_avgd, 'o--', label='validation')
+                vali_epochs_data_avgd = vali_epochs.mean(axis=1)
+                validation_data_avgd = vali_losses.mean(axis=1)
+                plt.plot(vali_epochs_data_avgd, validation_data_avgd, 'o--', label='validation')
 
             plt.xlabel('Epoch Number')
             plt.ylabel('Log Probability')

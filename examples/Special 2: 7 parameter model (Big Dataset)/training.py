@@ -90,12 +90,12 @@ dataset = convert_dataset(dataset, params_list)
 valiset = convert_dataset(valiset, params_list)
 
 '''Flow creation'''
-flow = CBCEstimator(params_list, flow_config, extractor_config, name='Spv2.1.0',
-                    workdir=traindir, mode='extractor+flow', preprocess=pre_process)
+# flow = CBCEstimator(params_list, flow_config, extractor_config, name='Spv2.1.0',
+#                     workdir=traindir, mode='extractor+flow', preprocess=pre_process)
 
 '''Training continuation of previous model'''
-# flow = CBCEstimator.load_from_file(traindir / 'Spv2.0.5.pt')
-# flow.rename('valid_test')
+flow = CBCEstimator.load_from_file(traindir / 'Spv2.1.1.pt')
+flow.rename('Spv2.1.2')
 for param in flow.model._embedding_net.parameters():
     param.requires_grad = True
 # print(flow.get_training_stage_seeds())
@@ -114,6 +114,13 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 Average train: 16.7966, Delta: -0.367924 (-2.14351%) 
 Average valid: 18.2569, Delta: -0.645987 (-3.4174%)
 
+2.1.1
+Average train: 14.8224, Delta: -0.207343 (-1.37955%)
+Average valid: 15.8539, Delta: 0.0899254 (0.570451%)
+
+2.1.2
+Average train: 12.6756, Delta: -0.332469 (-2.55586%)
+Average valid: 18.9634, Delta: 1.30666 (7.40034%)
 
 2.0.0
 Average: 19.1615, Delta: -0.376543 (-1.92723%)

@@ -2,8 +2,10 @@ import os
 import torch
 import numpy as np
 import pandas as pd
-from collections import OrderedDict
 from pathlib import Path
+from cycler import cycler, Cycler
+import matplotlib.pyplot as plt
+from collections import OrderedDict
 
 
 # Look for more colors just in case
@@ -31,6 +33,30 @@ class PrintStyle:
     reverse = '\033[07m'
     strikethrough = '\033[09m'
     invisible = '\033[08m'
+
+
+class Pallete:
+
+    def __init__(self, n: int = 10, cmap: str = 'jet'):
+        self.cycler = colour_cycler(n, cmap)
+
+    def colour(self):
+        return next(self.cycler())
+
+    def colours(self):
+        return self.cycler
+
+    # def merge(self, other):
+    #     ex = []
+    #     for b, o in blues, oranges:
+    #         ex.append(b)
+    #         ex.append(o)
+    #     cyc = cycle
+
+
+def colour_cycler(n: int = 10, cmap: str = 'jet'):
+    return cycler('color', [plt.get_cmap(cmap)(1. * i/n) for i in range(1,n)])
+
 
 
 def identity(x):
@@ -138,41 +164,61 @@ def load_losses(directory: str | Path,
                 model: str = None,
                 stages: int | list[int] = None,
                 validation: bool = False,
-                verbose: bool = True) -> tuple[np.array, np.array] | tuple[np.array, np.array, np.array]:
-
+                verbose: bool = True) -> tuple[dict, dict] | tuple[dict, dict, dict, dict]:
     subdirs = [f.name for f in os.scandir(directory) if f.is_dir()]
     if stages is None:
         chosen_subs = {int(subdir.split('_')[-1]): subdir for subdir in subdirs}
     else:
         if not hasattr(stages, '__iter__'):
             stages = [stages, ]
-        chosen_subs = {int(subdir.split('_')[-1]): subdir for subdir in subdirs if int(subdir.split('_')[-1]) in stages}
+        chosen_subs = {int(subdir.split('_')[-1]): subdir for subdir in subdirs  # add '#' to ignore directory
+                       if int(subdir.split('_')[-1]) in stages and subdir.split('_')[0] != '#'}
 
     if model is not None:
         chosen_subs = {stage: subdir for stage, subdir in chosen_subs.items() if int(subdir.split('_')[-3]) == model}
 
-    epochs = []
-    losses = []
-    validations = np.array([])
+    # Sort the stages to avoid issues down the line
+    chosen_subs = {stage: chosen_subs[stage] for stage in sorted(chosen_subs.keys())}
+
+    epochs = {}
+    losses = {}
+    vali_epochs = {}
+    validations = {}
     for i, (stage, sub) in enumerate(chosen_subs.items()):
         epoch, loss = torch.load(Path(directory) / sub / 'loss_data.pt')
+
+        if len(epoch.shape) == 1:  # To deal with legacy loss format
+            nepochs = int(epoch[-1]) + 1
+            epoch = epoch.reshape((nepochs, -1))
+            loss = loss.reshape((nepochs, -1))
+
         if i == 0:
-            epochs = np.concatenate((epochs, epoch))
+            epochs[stage] = epoch
 
         else:
-            epochs = np.concatenate((epochs, epoch + epochs[-1]*np.ones_like(epoch)))
+            epochs[stage] = epoch + last_epoch * np.ones_like(epoch)
 
-        losses = np.concatenate((losses, loss))
+        losses[stage] = loss
         if validation:
             try:
-                validations = np.concatenate((validations, torch.load(Path(directory) / sub / 'validation_data.pt')[1]))
+                vali_epoch, valid = torch.load(Path(directory) / sub / 'validation_data.pt')
+                if len(vali_epoch.shape) == 1:
+                    nepochs = int(vali_epoch[-1]) + 1
+                    vali_epoch = vali_epoch.reshape((nepochs, -1))
+                    valid = valid.reshape((nepochs, -1))
+                if i == 0:
+                    vali_epochs[stage] = vali_epoch
+                else:
+                    vali_epochs[stage] = vali_epoch + last_epoch * np.ones_like(vali_epoch)
+                validations[stage] = valid
             except FileNotFoundError as exc:
                 print(f'Validation not found in {sub}')
                 print(exc)
         if verbose:
             print(f'Loaded {sub}')
+        last_epoch = epochs[stage].flatten()[-1]
     if validation:
-        return epochs, losses, validations
+        return epochs, losses, vali_epochs, validations
     return epochs, losses
 
 

@@ -126,9 +126,12 @@ def train_model(model, dataloader, train_config, valiloader):
     losses = []
     epochs = []
     vali_losses = []
+    vali_epochs = []
     for epoch in range(n_epochs):
         print(f'Epoch {epoch + 1}')
-        N = len(dataloader)
+        n_batches = len(dataloader)
+        batch_epochs = []
+        batch_losses = []
         for i, (x, y) in enumerate(dataloader):
             # Update the weights of the network
             loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
@@ -141,45 +144,40 @@ def train_model(model, dataloader, train_config, valiloader):
             opt.step()
             opt.zero_grad()
             # Store training data
-            epochs.append(epoch + i / N)
-            losses.append(loss_value.item())
+            batch_epochs.append(epoch + i / n_batches)
+            batch_losses.append(loss_value.item())
 
-        temp_loss = np.array(losses).reshape(epoch + 1, -1).mean(axis=1)
+        epochs.append(batch_epochs)
+        losses.append(batch_losses)
+
+        temp_loss = np.array(losses).mean(axis=1)
         if epoch > 0:
             print(f'\nAverage train: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
                   f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
         else:
             print(f'\nAverage train: {temp_loss[0]:.6}\n')
 
+        n_batches = len(valiloader)
         if valiloader is not None:
             print(f'Validation of epoch {epoch + 1:3d}')
+            batch_epochs = []
+            batch_losses = []
             for i, (x, y) in enumerate(valiloader):
                 loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
 
                 print(f'Epoch {epoch + 1:3d}, batch {i:3d}: {loss_value.item():.4}')
-                vali_losses.append(loss_value.item())
+                batch_epochs.append(epoch + i / n_batches)
+                batch_losses.append(loss_value.item())
 
-            temp_loss = np.array(vali_losses).reshape(epoch + 1, -1).mean(axis=1)
+            vali_epochs.append(batch_epochs)
+            vali_losses.append(batch_losses)
+
+            temp_loss = np.array(vali_losses).mean(axis=1)
             if epoch > 0:
                 print(f'\nAverage valid: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
                       f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
             else:
                 print(f'\nAverage valid: {temp_loss[0]:.6}\n')
-
-        if valiloader is not None:
-            print(f'Validation of epoch {epoch + 1:3d}')
-            for i, (x, y) in enumerate(valiloader):
-                loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
-
-                print(f'Epoch {epoch + 1:3d}, batch {i:3d}: {loss_value.item():.4}')
-                vali_losses.append(loss_value.item())
-
-            temp_loss = np.array(vali_losses).reshape(epoch + 1, -1).mean(axis=1)
-            if epoch > 0:
-                print(f'\nAverage: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
-                      f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
-            else:
-                print(f'\nAverage: {temp_loss[0]:.6}\n')
 
         # Update Scheduler
         if sched is not None:
@@ -189,4 +187,4 @@ def train_model(model, dataloader, train_config, valiloader):
     # for g in optim.param_groups:
     #     g['lr'] = 0.001
 
-    return np.array(epochs), np.array(losses), np.array(vali_losses)
+    return np.array(epochs), np.array(losses), np.array(vali_epochs), np.array(vali_losses)
