@@ -1,3 +1,4 @@
+import os
 from multiprocessing import Pool
 from collections import OrderedDict
 from copy import deepcopy
@@ -39,7 +40,7 @@ default_config = {
     'filt_order': 512,
     'q_interval': (-0.15, 0.1),
 
-    'num_workers': 4,  # Might change in the future. Could be better to pass os.cpu_count()
+    'num_workers': 2,  # 4. Might change in the future. Could be better to pass os.cpu_count()
     'chunksize': 5,
     'seed_zero_pad': 3,
     'log_file': None  # Temporary solution until implementation of logging
@@ -130,14 +131,23 @@ class Injector:
 
             self.strains[ifo] = resample_to_delta_t(highpass(strain_pre.to_pycbc(), 20.0), 1.0 / 2048).crop(2, 2)
 
-        with Pool(processes=self.config['num_workers']) as pool:
-            injections = np.ones(self.size, dtype=object)
-            with tqdm(total=self.size, desc=f'Injection generation (seed: {self.seed})',
-                      ncols=100) as p_bar:
-                for i, result in enumerate(pool.imap_unordered(self.generate_injection, parameter_lists,
-                                                               chunksize=self.config['chunksize'])):
-                    p_bar.update(1)
-                    injections[i] = result  # Could discard None results here already. Test on linux
+        # with Pool(processes=self.config['num_workers']) as pool:
+        #     injections = np.ones(self.size, dtype=object)
+        #     with tqdm(total=self.size, desc=f'Injection generation (seed: {self.seed})',
+        #               ncols=100) as p_bar:
+        #         for i, result in enumerate(pool.imap_unordered(self.generate_injection, parameter_lists,
+        #                                                        chunksize=self.config['chunksize'])):
+        #             p_bar.update(1)
+        #             injections[i] = result  # Could discard None results here already. Test on linux
+
+        # Removed parallel generation, as an update to dependencies made it somehow slower than serialized
+        # (used 100% of all of my 12 cores)
+        injections = np.ones(self.size, dtype=object)
+        with tqdm(total=self.size, desc=f'Injection generation (seed: {self.seed})', ncols=100) as p_bar:
+            for i, params in enumerate(parameter_lists):
+                result = self.generate_injection(params)
+                p_bar.update(1)
+                injections[i] = result
         injections = set_ids(injections, self.seed)
         valid_injections = [x for x in injections if x is not None]
         return valid_injections

@@ -15,7 +15,7 @@ from .config import no_jargon
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
-from .train_utils import train_model, TrainSet, FeederDataset
+from .train_utils import train_model, TrainSet, FeederDataset, check_weight_viability
 
 from .sampling import SampleSet, SampleDict, MSEDataFrame, MSESeries
 
@@ -39,7 +39,7 @@ class Estimator:
                  name: str = '',
                  mode: str = 'extractor+flow',
                  device: str = 'cpu',
-                 preprocess: Callable = identity,
+                 preprocess: Callable = None,
                  jargon: dict = no_jargon
                  ):
         """
@@ -71,6 +71,9 @@ class Estimator:
 
         if train_history is None:
             train_history = OrderedDict()
+
+        if preprocess is None:
+            preprocess = identity
 
         self.metadata = {
             'name': name,
@@ -111,7 +114,7 @@ class Estimator:
 
     def model_to_device(self, device):
         """
-        Put model to device, and set self.device accordingly.
+        Put model to device, and set self.device accordingly, adapted from dingo.
         """
         if device not in ("cpu", "cuda"):
             raise ValueError(f"Device should be either cpu or cuda, got {device}.")
@@ -221,10 +224,10 @@ class Estimator:
             return trainset
 
         for i in trainset.index:
-            trainset['images'][i] = self._preprocess(torch.tensor(trainset['images'][i]))
+            trainset.loc[i, 'images'] = self._preprocess(torch.tensor(trainset['images'][i]))
             if len(trainset['images'][i].shape) == 3:
-                trainset['images'][i] = trainset['images'][i].expand(1, *trainset['images'][i].shape)
-            trainset['labels'][i] = torch.tensor(trainset['labels'][i])
+                trainset.loc[i, 'images'] = trainset['images'][i].expand(1, *trainset['images'][i].shape)
+            trainset.loc[i, 'labels'] = torch.tensor(trainset['labels'][i])
         return trainset
 
     def _append_training_stage(self, train_config):
@@ -263,6 +266,21 @@ class Estimator:
         if validation is not None:
             validation = self.preprocess(check_format(validation))
             validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
+
+        # Weight check parameters
+        if 'weight_check_max_val' in train_config:
+            max_val = train_config['weight_check_max_val']
+        else:
+            max_val = None
+
+        if 'weight_check_max_iter' in train_config:
+            max_iter = train_config['weight_check_max_iter']
+        else:
+            max_iter = None
+
+        # When training for the first time, check if weights give a reasonable first guess and if not reset them
+        if len(self.metadata['train_history']) == 1:
+            check_weight_viability(self.model, trainset, max_val, max_iter)
 
         t1 = time.time()
         epochs, losses, vali_epochs, vali_losses = train_model(self.model, trainset, train_config, validation)

@@ -2,7 +2,8 @@ import torch.nn as nn
 
 from torchvision import models
 
-from dtempest.core.net_blocks import ResNetBasicBlock
+from .net_blocks import ResNetBasicBlock
+from .common_utils import PrintStyle
 
 '''
 This function should create a XResNet (currently a normal ResNet)
@@ -11,6 +12,7 @@ Source for full resnet architecture: https://towardsdatascience.com/residual-net
 Source for feature extractor: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 '''
 
+a = models.ResNet
 
 def create_feature_extractor(n_features, base_net=models.resnet18(weights=models.ResNet18_Weights.DEFAULT)):
     for param in base_net.parameters():
@@ -22,8 +24,8 @@ def create_feature_extractor(n_features, base_net=models.resnet18(weights=models
     return base_net
 
 
-def create_full_net(input_channels: int, output_length: int,
-                    block=ResNetBasicBlock, deepths=[2, 2, 2, 2], *args, **kwargs):
+def create_full_net(input_channels: int = None, output_length: int = None,
+                    block=ResNetBasicBlock, depths=[2, 2, 2, 2], pytorch_net: bool = True, *args, **kwargs):
     '''
     
     Creates the ResNet architecture. ResNet-18 by default
@@ -37,8 +39,10 @@ def create_full_net(input_channels: int, output_length: int,
         If hooked to normalizing flow: Number of features to train the flow on
     block : object, optional
         Block type for the net. The default is ResNetBasicBlock.
-    deepths : list[int], optional
+    depths : list[int], optional
         Number of blocks in each layer. The default is [2, 2, 2, 2].
+    pytorch_net :
+        whether to use pytorch's ResNet class
 
     Returns
     -------
@@ -46,7 +50,24 @@ def create_full_net(input_channels: int, output_length: int,
         The resisual network.
 
     '''
-    return ResNet(input_channels, output_length, block=block, deepths=deepths, *args, **kwargs)
+
+    if pytorch_net:
+        if block not in [models.resnet.BasicBlock, models.resnet.Bottleneck]:
+            block = models.resnet.BasicBlock
+        try:
+            output_features = kwargs.pop('output_features')
+        except KeyError as exc:
+            output_features = 1000
+            print(PrintStyle.red + 'WARNING: You need to provide "output_features" to build a flow from a PyTorch '
+                                   f'ResNet\nSetting argument to default ({output_features})' + PrintStyle.reset)
+        net = models.ResNet(block=block, layers=depths, *args, **kwargs)
+        net.fc = nn.Linear(in_features=512, out_features=output_features)
+        return net
+
+    if (input_channels is None) or (output_length is None):
+        raise ValueError('Non-PyTorch ResNets need arguments "input_channels" and "output_length".')
+
+    return ResNet(input_channels, output_length, block=block, deepths=depths, *args, **kwargs)
 
 
 class ResNet(nn.Module):

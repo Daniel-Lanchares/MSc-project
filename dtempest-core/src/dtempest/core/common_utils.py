@@ -3,7 +3,8 @@ import torch
 import numpy as np
 import pandas as pd
 from pathlib import Path
-from cycler import cycler, Cycler
+from multiprocessing import Pool
+from cycler import cycler
 import matplotlib.pyplot as plt
 from collections import OrderedDict
 
@@ -55,8 +56,7 @@ class Pallete:
 
 
 def colour_cycler(n: int = 10, cmap: str = 'jet'):
-    return cycler('color', [plt.get_cmap(cmap)(1. * i/n) for i in range(1,n)])
-
+    return cycler('color', [plt.get_cmap(cmap)(1. * i / n) for i in range(1, n)])
 
 
 def identity(x):
@@ -149,14 +149,32 @@ def seeds2names(seeds):
     return [f'Raw_Dataset_{seed:03}.pt' for seed in seeds]
 
 
+def load_rawset(dire):
+    return torch.load(dire)
+
+
 def load_rawsets(directory, names: list[str], verbose: bool = True):
     if not hasattr(names, '__iter__'):
         names = [names, ]
+    # directories = [Path(directory) / name for name in names]
     dataset = []
     for name in names:
-        dataset = np.concatenate((dataset, torch.load(directory / name)))
+        dataset = np.concatenate((dataset, load_rawset(directory / name)))
         if verbose:
             print(f'Loaded {name}')
+    return RawSet(dataset, name='+'.join(names))
+
+
+def load_rawsets_pool(directory, names: list[str], verbose: bool = True):
+    if not hasattr(names, '__iter__'):
+        names = [names, ]
+    directories = [Path(directory) / name for name in names]
+    dataset = []
+    with Pool() as pool:
+        for i, loaded in enumerate(pool.imap(load_rawset, directories)):
+            dataset = np.concatenate((dataset, loaded))
+            if verbose:
+                print(f'Loaded {names[i]}')
     return RawSet(dataset, name='+'.join(names))
 
 

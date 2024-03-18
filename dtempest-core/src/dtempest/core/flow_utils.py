@@ -119,8 +119,12 @@ def random_perm_and_lulinear(param_dim: int):
         ])
 
 
-def mask_affine_autoreg(i: int, param_dim: int, context_dim: int,
-                        hidden_dim: int, num_transform_blocks: int, use_batch_norm: bool = False):
+def mask_affine_autoreg(i: int,
+                        param_dim: int,
+                        context_dim: int,
+                        hidden_dim: int,
+                        num_transform_blocks: int,
+                        use_batch_norm: bool = False):
     return transforms.CompositeTransform([
         transforms.ReversePermutation(features=param_dim),
         transforms.MaskedAffineAutoregressiveTransform(features=param_dim,
