@@ -1,7 +1,4 @@
-import time
 from pathlib import Path
-import numpy as np
-import matplotlib.pyplot as plt
 
 from torchvision import models
 from dtempest.core import Estimator

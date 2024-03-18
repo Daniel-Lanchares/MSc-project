@@ -1,24 +1,16 @@
 from pathlib import Path
-import numpy as np
-from pprint import pprint
 import matplotlib.pyplot as plt
 
 import torch
-from torchvision import models
-from dtempest.core import Estimator
-from dtempest.core.sampling import SampleDict
+
+from dtempest.gw import CBCEstimator
 from dtempest.core.common_utils import load_rawsets, seeds2names
 
 from dtempest.gw.conversion import convert_dataset, plot_image
-from dtempest.gw.catalog import Catalog, Merger
-import dtempest.core.flow_utils as trans
-
-from pesummary.utils.samples_dict import MultiAnalysisSamplesDict
-from pesummary.gw.conversions import convert
-'''
 
 '''
 
+'''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -27,7 +19,9 @@ traindir0 = train_dir / 'training_test_4'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = Estimator.load_from_file(traindir0 / 'overfitting_test.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'overfitting_test.pt')
+flow0.change_parameter_name('d_L', to='luminosity_distance')
+
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
@@ -40,11 +34,12 @@ event = f'{seed}.00020'
 # 32.00030 nailed, as is fairly high SNR
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
+dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
-# sset0 = flow0.sample_set(3000, trainset[:][:], name=flow0.name)
-#
-# error = sset0.accuracy_test(sqrt=True)
+sset0 = flow0.sample_set(3000, trainset[:10][:], name=flow0.name)
+
+error = sset0.accuracy_test(sqrt=True)
 #
 # sdict = sset0[event]
 # fig = sdict.plot(type='corner', truths=trainset['labels'][event])
@@ -52,7 +47,8 @@ trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
-fig = sdict.plot(type='corner', truths=trainset['labels'][event])
+
+fig = sdict.plot(type='corner', truths=trainset['labels'][event])  # TODO: check how to plot only certain parameters
 fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
@@ -72,7 +68,7 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 # fig = sdict.plot(type='skymap')
 
 
-# print(error.mean(axis=0))
+print(error.mean(axis=0))
 samples = flow0.sample_and_log_prob(3000, trainset['images'][0])
 print(-torch.mean(samples[1]))
 plt.show()
