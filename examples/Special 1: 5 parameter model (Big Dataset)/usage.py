@@ -15,11 +15,11 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 1. 5 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_0'
+traindir0 = train_dir / 'training_test_3'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.0.6.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.3.1b.pt')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
@@ -31,7 +31,7 @@ event = f'{seed}.00001'
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
-sset0 = flow0.sample_set(3000, trainset[:][:], name=f'flow {flow0.name}')
+sset0 = flow0.sample_set(3000, trainset[:][:10], name=f'flow {flow0.name}')
 
 full = sset0.full_test()
 full_rel = sset0.full_test(relative=True)
@@ -43,13 +43,13 @@ full_rel = sset0.full_test(relative=True)
 
 image = trainset['images'][event]
 label = trainset['labels'][event]
-sdict = flow0.sample_dict(3000, context=image, reference=label)
+sdict = flow0.sample_dict(10000, context=image, reference=label)
 
 fig = sdict.plot(type='corner', truths=trainset['labels'][event])  # TODO: check how to plot only certain parameters
 
-# fig = plot_image(image, fig=fig,
-#                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
-# fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+fig = plot_image(image, fig=fig,
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 
 # For discarding problematic samples
@@ -86,8 +86,22 @@ print(-torch.mean(samples[1]))
 plt.show()
 
 
-''' May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
+''' 
 Dataset 999
+
+Best model so far
+
+| parameters<br>(flow Spv1.3.1b)   |       median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|----------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                       |   46.3576    |   46.8531   |             6.95897 |                          9.29351  |                           8.99562  | $M_{\odot}$    |
+| mass_ratio                       |    0.612215  |    0.613444 |             0.17615 |                          0.225936 |                           0.212689 | $ø$            |
+| luminosity_distance              | 1367.16      | 1502.02     |           536.337   |                        581.89     |                         693.561    | $\mathrm{Mpc}$ |
+| ra                               |    3.11678   |    3.17589  |             1.21031 |                          1.41312  |                           1.43929  | $\mathrm{rad}$ |
+| dec                              |    0.0674703 |    0.016705 |             0.44408 |                          0.616734 |                           0.593469 | $\mathrm{rad}$ |
+
+tensor(11.6461, grad_fn=<NegBackward0>)
+
+May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
 
 | parameters<br>(flow Spv1.0.0)   |      median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
 |---------------------------------|-------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|

@@ -1,3 +1,4 @@
+import time
 from pathlib import Path
 import pandas as pd
 import numpy as np
@@ -55,15 +56,29 @@ class TrainSet:
         self._df[item] = data
 
     @classmethod
-    def load(cls, path, name: str = None):
+    def concat(cls, trainsets: list, name: str = None, *args, **kwargs):
+        if name is None:
+            name = trainsets[0].name
+        dfs = [tset._df for tset in trainsets]
+        return TrainSet(data=pd.concat(dfs, *args, **kwargs), name=name)
+
+    @classmethod
+    def load(cls, path: str | Path | list[str] | list[Path], name: str = None, verbose: bool = True):
         # Trainset loads and saves its internal DataFrame, not the TrainSet itself
+        if type(path) is list:
+            return TrainSet.concat([TrainSet.load(_path) for _path in path], name=name)
         try:
-            name, df = torch.load(path)
+            _name, df = torch.load(path)
         except ValueError:
             # Then is a lightweight save
             df = pd.read_pickle(path)
-            name = path.parts[-1][:-3]
+            _name = path.parts[-1][:-3]
 
+        if name is None:
+            name = _name
+
+        if verbose:
+            print(f'Loaded TrainSet {_name}')
         return TrainSet(data=df, name=name)
 
     def save(self, path, lightweight: bool = False):
@@ -106,6 +121,60 @@ class FeederDataset(Dataset):
 
     def __getitem__(self, ix):
         return self.x[ix], self.y[ix]
+
+
+def reset_all_weights(model: nn.Module) -> None:
+    """
+    refs:
+        - https://discuss.pytorch.org/t/how-to-re-set-alll-parameters-in-a-network/20819/6
+        - https://stackoverflow.com/questions/63627997/reset-parameters-of-a-neural-network-in-pytorch
+        - https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+    """
+
+    @torch.no_grad()
+    def weight_reset(m: nn.Module):
+        # - check if the current module has reset_parameters & if it is callable call it on m
+        reset_parameters = getattr(m, "reset_parameters", None)
+        if callable(reset_parameters):
+            m.reset_parameters()
+
+    # Applies fn recursively to every submodule see: https://pytorch.org/docs/stable/generated/torch.nn.Module.html
+    model.apply(fn=weight_reset)
+
+
+def _check_weight_viability(model, data, max_val, max_iter, counter: int = 1):
+    x, y = data
+    loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
+    print(f'Viability test {counter}')
+    print(f'Initial loss: {loss_value.item():.4}')
+    if loss_value < max_val:
+        print(f'Loss under {max_val}. Test passed')
+        return
+    else:
+        print(f'Loss over {max_val}. Test failed')
+        if counter <= max_iter:
+            print('Trying again')
+            reset_all_weights(model)
+            counter += 1
+            del loss_value  # Might be causing memory issues
+            time.sleep(2)  # Gives time to read if someone is taking a look, won't affect hours long training
+            _check_weight_viability(model, data, max_val, max_iter, counter)
+            return
+        else:
+            print(f'Reached {max_iter} iterations without success. Training from current weights')
+            return
+
+
+def check_weight_viability(model, dataloader, max_val: float = None, max_iter: int = None) -> None:
+    if max_val is None:
+        max_val = 1e4
+    if max_iter is None:
+        max_iter = 20
+    for data in dataloader:
+        # Not really designed to loop
+        # Hacky way of doing it, but torch's DataLoader doesn't define other 'proper' way of accessing items
+        _check_weight_viability(model, data, max_val, max_iter)
+        return
 
 
 def train_model(model, dataloader, train_config, valiloader):

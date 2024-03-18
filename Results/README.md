@@ -23,6 +23,21 @@ The current development of the project has three semi-open fronts:
   much training was performed
 
 
+- **A 5 parameter model**. Where effective spin has been substituted for mass ratio to allow mass reconstruction and 
+  the full sky position has been trained over. This is the model with the best scores so far, as it was trained with 
+  a dataset of 20000 images for its first stage and a further 20000 for its single-epoch second stage. Validation 
+  logprob of ~12.8.
+
+| parameters<br>(flow Spv1.3.1b)   |       median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|----------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                       |   46.3576    |   46.8531   |             6.95897 |                          9.29351  |                           8.99562  | $M_{\odot}$    |
+| mass_ratio                       |    0.612215  |    0.613444 |             0.17615 |                          0.225936 |                           0.212689 | $ø$            |
+| luminosity_distance              | 1367.16      | 1502.02     |           536.337   |                        581.89     |                         693.561    | $\mathrm{Mpc}$ |
+| ra                               |    3.11678   |    3.17589  |             1.21031 |                          1.41312  |                           1.43929  | $\mathrm{rad}$ |
+| dec                              |    0.0674703 |    0.016705 |             0.44408 |                          0.616734 |                           0.593469 | $\mathrm{rad}$ |
+
+![estimation of 999.00001](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_5p_special_model/Spv2.3.1b_corner.png)
+
 - **A 6 parameter model**. These being chirp mass, mass ratio, effective spin, luminosity distance, right ascension 
   and declination. The models showed promise training to _logprob ~14_, but have been difficult to train any further.
   

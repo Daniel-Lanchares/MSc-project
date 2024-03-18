@@ -8,7 +8,7 @@ from dtempest.core.common_utils import load_losses, Pallete, colour_cycler
 
 path = Path("/media/daniel/easystore/Daniel/MSc-files/Examples/Special 2. 7 parameter model (Big Dataset)")
 
-n = 1
+n = 6
 epochs, losses, vali_epochs, validations = load_losses(path / f'training_test_{n}', validation=True)
 
 resolution = 10  # Carefully with training tests with variable batch_size, could need to load model

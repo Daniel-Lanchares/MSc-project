@@ -15,11 +15,11 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_0'
+traindir0 = train_dir / 'training_test_6'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv2.0.5.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv2.6.0.pt')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
@@ -43,13 +43,13 @@ full_rel = sset0.full_test(relative=True)
 
 image = trainset['images'][event]
 label = trainset['labels'][event]
-sdict = flow0.sample_dict(3000, context=image, reference=label)
+sdict = flow0.sample_dict(10000, context=image, reference=label)
 
 fig = sdict.plot(type='corner', truths=label)  # TODO: check how to plot only certain parameters
 
-# fig = plot_image(image, fig=fig,
-#                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
-# fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+fig = plot_image(image, fig=fig,
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 
 # For discarding problematic samples
@@ -88,6 +88,20 @@ plt.show()
 
 ''' May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
 Dataset 999
+
+Similar results than 2.0.3 at higher loss scores. Training better? And hopefully will start overfitting much latter.
+| parameters<br>(flow Spv2.6.0)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|---------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                      |   45.5484     |   46.8531    |            8.04104  |                         10.4546   |                          11.3747   | $M_{\odot}$    |
+| mass_ratio                      |    0.658934   |    0.613444  |            0.187625 |                          0.266235 |                           0.244804 | $ø$            |
+| chi_eff                         |    0.0361884  |    0.0106512 |            0.185129 |                          0.258259 |                           0.243397 | $ø$            |
+| luminosity_distance             | 1224.4        | 1502.02      |          560.808    |                        548.528    |                         829.066    | $\mathrm{Mpc}$ |
+| theta_jn                        |    1.5799     |    1.54645   |            0.644467 |                          0.814213 |                           0.802597 | $\mathrm{rad}$ |
+| ra                              |    3.34396    |    3.17589   |            1.33388  |                          1.69941  |                           1.74131  | $\mathrm{rad}$ |
+| dec                             |    0.00873722 |    0.016705  |            0.522891 |                          0.689662 |                           0.715275 | $\mathrm{rad}$ |
+
+tensor(14.6519, grad_fn=<NegBackward0>)
+
 
 | parameters<br>(flow Spv2.0.3)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
 |---------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
