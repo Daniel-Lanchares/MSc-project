@@ -4,7 +4,7 @@ from dtempest.gw.generation.parallel import Injector
 
 if __name__ == '__main__':
 
-    seeds = range(77, 81)
+    seeds = range(101, 121)
     zero_pad = 3
 
     files_path = Path('/media/daniel/easystore/Daniel/MSc-files/Raw Datasets')

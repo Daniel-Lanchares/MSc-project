@@ -15,7 +15,7 @@ from .config import no_jargon
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
-from .train_utils import train_model, TrainSet, FeederDataset, check_weight_viability
+from .train_utils import train_model, TrainSet, check_trainset_format, FeederDataset, check_weight_viability
 
 from .sampling import SampleSet, SampleDict, MSEDataFrame, MSESeries
 
@@ -201,9 +201,9 @@ class Estimator:
             # First time training
             rng = np.random.default_rng(seed)
             return rng.choice(np.arange(*data_pool), size=size, replace=False)
-        #TODO Continue, and study case match here.
+        # TODO Continue, and study case match here.
         if type(new_data_indeces) == int:
-            new_data_slices = [slice(new_data_indeces),]
+            new_data_slices = [slice(new_data_indeces), ]
         elif type(new_data_indeces) == list[int]:
             new_data_slices = [slice(index) for index in new_data_indeces]
         elif type(new_data_indeces) == list[slice]:
@@ -213,7 +213,7 @@ class Estimator:
 
         previous_seeds = np.array(previous_seeds)
         for s in new_data_slices:
-            new_value = None # Find value not in previous seeds
+            new_value = None  # Find value not in previous seeds
             previous_seeds[s] = new_value
 
     def preprocess(self, trainset: TrainSet | np.ndarray):
@@ -239,17 +239,19 @@ class Estimator:
         self.metadata['train_history'][f'stage {stage_num}'].update({'training_time': train_time})
         print(f'train_time: {train_time} hours')
 
-    def train(self,
-              trainset: TrainSet | str | Path,
-              traindir, train_config,
-              validation: TrainSet | str | Path = None,
-              preprocess: bool = True,
-              save_loss: bool = True,
-              make_plot: bool = True):
+    def _train(self,
+               trainset: TrainSet | str | Path,
+               traindir: str | Path,
+               train_config: dict,
+               validation: TrainSet | str | Path = None,
+               preprocess: bool = True,
+               save_loss: bool = True,
+               make_plot: bool = True) \
+            -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
         # TODO: default train_config attributes
 
-        trainset = check_format(trainset)
+        trainset = check_trainset_format(trainset)
         traindir = Path(traindir)
         # Check if traindir exists and make if it does not
         traindir.mkdir(parents=True, exist_ok=True)
@@ -267,19 +269,18 @@ class Estimator:
             validation = self.preprocess(check_format(validation))
             validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
 
-        # Weight check parameters
-        if 'weight_check_max_val' in train_config:
-            max_val = train_config['weight_check_max_val']
-        else:
-            max_val = None
-
-        if 'weight_check_max_iter' in train_config:
-            max_iter = train_config['weight_check_max_iter']
-        else:
-            max_iter = None
-
         # When training for the first time, check if weights give a reasonable first guess and if not reset them
         if len(self.metadata['train_history']) == 1:
+            # Weight check parameters
+            if 'weight_check_max_val' in train_config:
+                max_val = train_config['weight_check_max_val']
+            else:
+                max_val = None
+
+            if 'weight_check_max_iter' in train_config:
+                max_iter = train_config['weight_check_max_iter']
+            else:
+                max_iter = None
             check_weight_viability(self.model, trainset, max_val, max_iter)
 
         t1 = time.time()
@@ -318,6 +319,90 @@ class Estimator:
             plt.title('Log Probability (avgd per epoch)')
             plt.legend()
             plt.savefig(lossdir / f'loss_plot_{self.name}_stage_{n}.png', format='png')
+
+        if validation is not None:
+            return epochs, losses, vali_epochs, vali_losses
+        else:
+            return epochs, losses
+
+    def dataset_partition_training(self,
+                                   trainset_paths: list[str | Path] | list[list[Path | str]],
+                                   traindir: str | Path,
+                                   train_configs: dict | list[dict],
+                                   validation: TrainSet | str | Path = None,
+                                   preprocess: bool = True,
+                                   save_loss: bool = True,
+                                   make_plot: bool = True,
+                                   n_epochs: int = None):
+        # Partition training consist on loading up a portion of the dataset, train on it for
+        # "train_configs[i]["n_epochs"]" epochs and then load the next portion. Ideal for huge datasets.
+        if n_epochs is None:
+            if isinstance(train_configs, list):
+                n_epochs = len(train_configs)
+            else:
+                raise ValueError("If train_configs is of type 'dict' you need to provide n_epochs")
+        if isinstance(train_configs, dict):
+            train_configs = [train_configs,] * n_epochs
+
+        n_pre = len(self.metadata['train_history'])
+
+        full_epochs, full_loss = [], []
+        full_vali_epochs, full_vali_loss = [], []
+        for epoch in range(n_epochs):
+            print(f'Starting substage {epoch}\n')
+            epochs, loss = [], []
+            vali_epochs, vali_loss = [], []
+            for i, set_path in enumerate(trainset_paths):
+
+                trainset = TrainSet.load(set_path, name=f'{i+1} of {len(trainset_paths)}')
+
+                # TEST ONLY
+                d = trainset.index
+                c = d.str.split('.')
+                a = [c[x][-1] for x in range(len(d))]
+                # print(a)
+                b = np.array([int(x) for x in a])
+                condition = trainset[b > 100].index
+                trainset = trainset.drop(condition)
+
+                loss_data = self._train(trainset, traindir, train_configs[epoch], validation, preprocess,
+                                        save_loss=False, make_plot=False)
+                epochs.append(list(loss_data[0]))  # Maybe list(...) of .flatten() if problematic
+                loss.append(list(loss_data[1]))
+                if validation:
+                    vali_epochs.append(list(loss_data[2]))
+                    vali_loss.append(list(loss_data[3]))
+            full_epochs.append(epochs)  # Maybe list(...) of .flatten() if problematic
+            full_loss.append(loss)
+            if validation:
+                full_vali_epochs.append(vali_epochs)
+                full_vali_loss.append(vali_loss)
+
+        full_epochs = np.array(full_epochs)
+        full_losses = np.array(full_loss)
+        full_vali_epochs = np.array(full_vali_epochs)
+        full_vali_losses = np.array(full_vali_loss)
+
+        zero_pad = 3  # Hard coded for now
+        n_post = len(self.metadata['train_history'])
+
+        if save_loss:
+            lossdir = traindir / f'loss_data_{self.name}_stages_{n_pre:0{zero_pad}}_to_{n_post:0{zero_pad}}'
+            lossdir.mkdir(parents=True, exist_ok=True)
+
+            torch.save((full_epochs, full_losses), lossdir / 'loss_data.pt')
+            if validation is not None:
+                torch.save((full_vali_epochs, full_vali_losses), lossdir / 'validation_data.pt')
+
+        if make_plot:
+            pass  # We'll see
+
+    def train(self, trainset: TrainSet | str | Path | list[str | Path] | list[list[Path | str]], *args, **kwargs):
+        # If the trainset is a list of paths then it will perform a partition training
+        if isinstance(trainset, TrainSet | str | Path):
+            return self._train(trainset, *args, **kwargs)
+        elif isinstance(trainset, list):
+            return self.dataset_partition_training(trainset, *args, **kwargs)
 
     def sample_dict(self,
                     num_samples: int,

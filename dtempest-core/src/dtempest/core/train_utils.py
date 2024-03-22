@@ -1,5 +1,6 @@
 import time
 from pathlib import Path
+from typing import get_type_hints
 import pandas as pd
 import numpy as np
 
@@ -40,12 +41,36 @@ class TrainSet:
             else:
                 # ... Or have a generic name
                 name = type(self).__name__
-        self._df.name = name
+        self.name = name
 
     def __getattr__(self, attr):
         if attr in self.__dict__:
             return getattr(self, attr)
-        return getattr(self._df, attr)
+        elif hasattr(self._df, attr):
+            # First let's deal with some special, often used, cases
+            if attr == 'T':
+                return self.transpose()
+            # This allows it to transform the internal dataframe and return a new TrainSet... when it works
+            try:
+                if hasattr(type(self._df), attr) and hasattr(getattr(self._df, attr), '__annotations__'):
+                    returns = getattr(self._df, attr).__annotations__['return'].split(' | ')
+                    # TODO: consider exceptions raised from methods that can return different types based on arguments
+                    if 'DataFrame' in returns:
+                        return Overarcher(getattr(self._df, attr), self)
+                    elif 'Series' in returns:
+                        # Not doing anything with it yet, but interesting for other classes
+                        return getattr(self._df, attr)
+                    elif 'str' in returns:
+                        return getattr(self._df, attr)  # Not doing anything fancy, but can catch formatting calls
+                    else:
+                        return getattr(self._df, attr)
+                else:
+                    return getattr(self._df, attr)
+            except KeyError:
+                return getattr(self._df, attr)
+            # return getattr(self._df, attr)
+        else:
+            raise AttributeError(f"{type(self)} has no attribute '{attr}'")
 
     def __getitem__(self, item):
         if isinstance(self._df[item], pd.DataFrame):
@@ -97,6 +122,33 @@ class TrainSet:
 
     def __repr__(self):
         return self._df.__repr__()
+
+
+class Overarcher:
+    def __init__(self, method, wrapper_object: TrainSet):
+        self.method = method
+        self.wrapper = wrapper_object
+
+    def __call__(self, *args, **kwargs):
+        return type(self.wrapper)(data=self.method(*args, **kwargs), name=self.wrapper.name)
+
+
+def check_trainset_format(trainset: TrainSet | str | Path):
+    """
+        Allows functions to be given either a dataset tensor or its path.
+
+        Parameters
+        ----------
+        trainset : str, pathlib.Path or TrainSet.
+
+        Returns
+        -------
+        dataset : torch.tensor.
+
+        """
+    if isinstance(trainset, str | Path):
+        trainset = TrainSet.load(trainset)
+    return trainset
 
 
 class FeederDataset(Dataset):
@@ -226,8 +278,8 @@ def train_model(model, dataloader, train_config, valiloader):
         else:
             print(f'\nAverage train: {temp_loss[0]:.6}\n')
 
-        n_batches = len(valiloader)
         if valiloader is not None:
+            n_batches = len(valiloader)
             print(f'Validation of epoch {epoch + 1:3d}')
             batch_epochs = []
             batch_losses = []

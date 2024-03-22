@@ -15,11 +15,11 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 1. 5 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_3'
+traindir0 = train_dir / 'training_test_4'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.3.1b.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.4.2.B3.pt')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
@@ -81,7 +81,7 @@ print()
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples = flow0.sample_and_log_prob(3000, trainset['images'][0])
+samples = flow0.sample_and_log_prob(3000, trainset['images'].iloc[0])
 print(-torch.mean(samples[1]))
 plt.show()
 
@@ -90,6 +90,17 @@ plt.show()
 Dataset 999
 
 Best model so far
+
+| parameters<br>(flow Spv1.4.2.B3)   |      median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|------------------------------------|-------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                         |   45.6032   |   46.8531   |            6.62453  |                          7.69835  |                           7.84982  | $M_{\odot}$    |
+| mass_ratio                         |    0.577473 |    0.613444 |            0.169911 |                          0.201764 |                           0.23304  | $ø$            |
+| luminosity_distance                | 1396.15     | 1502.02     |          507.05     |                        546.574    |                         682.22     | $\mathrm{Mpc}$ |
+| ra                                 |    2.83173  |    3.17589  |            1.20573  |                          1.38315  |                           1.39405  | $\mathrm{rad}$ |
+| dec                                |    0.156133 |    0.016705 |            0.438065 |                          0.537821 |                           0.571709 | $\mathrm{rad}$ |
+
+tensor(11.1456, grad_fn=<NegBackward0>)
+
 
 | parameters<br>(flow Spv1.3.1b)   |       median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
 |----------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|

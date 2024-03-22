@@ -38,7 +38,7 @@ net_config = {
 pre_process = None
 
 train_config = {
-    'num_epochs': 1,
+    'num_epochs': 5,
     'checkpoint_every_x_epochs': None,  # Not yet implemented
     'batch_size': 64,
     'optim_type': 'Adam',  # 'SGD'
@@ -80,29 +80,30 @@ flow_config = {  # Smaller flow, hopefully doesn't overfit
 vali_seeds = 999
 # print(seeds)
 
-paths = [trainset_dir / '20_sets' / (f'{ 0} to {19}.'+', '.join(params_list)+'.pt'),
-         trainset_dir / '20_sets' / (f'{20} to {39}.'+', '.join(params_list)+'.pt')]
-dataset = TrainSet.load(paths, name='0 to 40')
+paths = [trainset_dir / '20_sets' / (f'{80} to {99}.'+', '.join(params_list)+'.pt'),
+         trainset_dir / '20_sets' / (f'{100} to {119}.'+', '.join(params_list)+'.pt')]
+dataset = TrainSet.load(paths, name='80 to 120')
 
-# seeds = range(60, 80)
+# seeds = range(100, 120)
 # dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
 # dataset.change_parameter_name('d_L', to='luminosity_distance')
 
 valiset = load_rawsets(rawdat_dir, seeds2names(vali_seeds))
 valiset.change_parameter_name('d_L', to='luminosity_distance')
+valiset = convert_dataset(valiset, params_list)
 
 # Convert to Trainset object (pd.DataFrame based instead of OrderedDict based)
 # dataset = convert_dataset(dataset, params_list)
 # dataset.save(trainset_dir / '20_sets' / (f'{seeds[0]} to {seeds[-1]}.'+', '.join(params_list)+'.pt'))
-valiset = convert_dataset(valiset, params_list)
+
 
 '''Flow creation'''
 # flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv1.{n}.0',
 #                     workdir=traindir, mode='net+flow', preprocess=pre_process)
 
 '''Training continuation of previous model'''
-flow = CBCEstimator.load_from_file(traindir / f'Spv1.{n}.1b.pt')
-flow.rename(f'Spv1.{n}.1c')
+flow = CBCEstimator.load_from_file(traindir / f'Spv1.{n}.1c.pt')
+flow.rename(f'Spv1.{n}.1d')
 # print(flow.get_training_stage_seeds())
 
 # from pprint import pprint
@@ -143,6 +144,13 @@ Average valid: 18.675, Delta: 2.16363 (13.1039%)
 1.3.1b Model at min logprob of 12.8493
 Average train: 12.9557
 Average valid: 12.8493
+
+1.3.1c Meh
+Average train: 12.7944
+Average valid: 12.8253
+
+
+1.3.2 Ideal for overfitting test
 
 Next plan: 5-epoch (or 1) stages switching between trainsets. Need to generate more... Which turn out to be a nightmare
 '''

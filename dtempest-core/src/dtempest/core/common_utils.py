@@ -128,7 +128,7 @@ class RawSet:  # TODO
     def __getitem__(self, item):
         # if isinstance(self._df[item], pd.Series):  # Need to study whether I will actually use this
         #     return type(self)(rawdata=self._df[item], name=self.name)
-        return self._df[item]
+        return self._df.iloc[item]  # Changed to avoid warnings, might break something (self._df[item])
 
     def __setitem__(self, item, data):
         self._df[item] = data
