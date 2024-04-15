@@ -257,6 +257,17 @@ class SampleDict(SamplesDict):
             for i, param in enumerate(self.parameters):
                 self._truth[param] = new_truth[i]
 
+    def select_truths(self, labels, order: str = 'internal'):
+        if order == 'internal':
+            return [self.truth[param] for param in self.truth.keys() if param in labels]
+        elif order == 'external':
+            return [self.truth[param] for param in labels if param in self.truth.keys()]
+        else:
+            raise ValueError(f"Couldn't understand order argument '{order}'. "
+                             "Order can be either 'internal' to follow the SampleDict ordering of params "
+                             "or 'external' to follow ordering of given iterable.")
+
+
     # def plot_1d_hists(self, param_array, fig=None, figsize=None, quantiles=(0.16, 0.84),
     #                   average=False, same=False, **kwargs):
     #     if fig is not None and not same:
@@ -511,18 +522,28 @@ class SampleDict(SamplesDict):
         fig = super().plot(type=type, *args, **kwargs)
 
         if type == 'corner' and values:
+            import corner
             if kwargs.get('parameters', None) is not None:
-                params = kwargs['parameters']
+                # Avoids plotting parameters we don't have and maintains correct order.
+                params = [param for param in self.parameters if param in kwargs['parameters']]
             else:
                 params = self.parameters
             # Give means and quantiles in bilby fashion.
             axes = fig.get_axes()
+            medians = []
             #  Add the titles
             for i, par in enumerate(params):
+                median_data = self.get_one_dimensional_median_and_error_bar(
+                        par, quantiles=kwargs.get('quantiles'), **kwargs.get('title_kwargs', {}))
                 ax = axes[i + i * len(params)]
                 if ax.title.get_text() == '':
-                    ax.set_title(self.get_one_dimensional_median_and_error_bar(
-                        par, quantiles=kwargs.get('quantiles'), **kwargs.get('title_kwargs', {})).string)
+                    ax.set_title(median_data.string)
+                medians.append(median_data.median)
+            medians = np.array(medians)
+            if kwargs.get('medians', None) is not None:
+                corner.overplot_lines(fig, medians, color=kwargs.get('median_colour', "tab:blue"))
+                corner.overplot_points(fig, medians[None], color=kwargs.get('median_colour', "tab:blue"),
+                                       marker=kwargs.get('median_marker', "s"))
         return fig
 
 

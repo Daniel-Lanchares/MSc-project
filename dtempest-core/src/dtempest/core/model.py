@@ -7,6 +7,7 @@ from pathlib import Path
 from copy import copy
 from collections import OrderedDict
 from typing import Callable
+from pandas._typing import RandomState as pd_RandomState
 
 from tqdm import tqdm
 from torch.utils.data import DataLoader
@@ -190,6 +191,16 @@ class Estimator:
         datasets = re.findall(r'\d+', self.metadata['train_history'][f'stage {stage}']['trainset'])
         return [int(data) for data in datasets]
 
+    def turn_net_grad(self, code: str | bool):
+        if code == 'on':
+            code = True
+        elif code == 'off':
+            code = False
+        elif type(code) is str:
+            raise ValueError(f"Argument 'code' = {code} not understood")
+        for parameter in self.model._embedding_net.parameters():
+            parameter.requires_grad = code
+
     def dataset_choice(self,
                        seed: int = 0,
                        size: int = 15,
@@ -216,12 +227,15 @@ class Estimator:
             new_value = None  # Find value not in previous seeds
             previous_seeds[s] = new_value
 
-    def preprocess(self, trainset: TrainSet | np.ndarray):
+    def preprocess(self, trainset: TrainSet | np.ndarray | torch.Tensor):
         if isinstance(trainset, np.ndarray):
             # if it is an array its context from the sampling methods, not an entire set
             trainset = self._preprocess(torch.tensor(trainset))
             trainset = trainset.expand(1, *trainset.shape)
             return trainset
+
+        elif isinstance(trainset, torch.Tensor):
+            return trainset  # Has been preprocessed already
 
         for i in trainset.index:
             trainset.loc[i, 'images'] = self._preprocess(torch.tensor(trainset['images'][i]))
@@ -281,7 +295,12 @@ class Estimator:
                 max_iter = train_config['weight_check_max_iter']
             else:
                 max_iter = None
-            check_weight_viability(self.model, trainset, max_val, max_iter)
+
+            if 'weight_check_tenfold' in train_config:
+                tenfold = train_config['weight_check_tenfold']
+            else:
+                tenfold = False
+            check_weight_viability(self.model, trainset, max_val, max_iter, tenfold)
 
         t1 = time.time()
         epochs, losses, vali_epochs, vali_losses = train_model(self.model, trainset, train_config, validation)
@@ -333,7 +352,12 @@ class Estimator:
                                    preprocess: bool = True,
                                    save_loss: bool = True,
                                    make_plot: bool = True,
-                                   n_epochs: int = None):
+                                   n_epochs: int = None,  # TODO: docstring
+                                   cutoff: int = -1,
+                                   trainset_random_state: pd_RandomState | str = None):
+        # Need to introduce a cutoff to have a consistent loss array. Default equivalent to no cutoff condition.
+        # String in random_state to signal no randomizing: e.g: 'no_shuffle', but any string will do
+
         # Partition training consist on loading up a portion of the dataset, train on it for
         # "train_configs[i]["n_epochs"]" epochs and then load the next portion. Ideal for huge datasets.
         if n_epochs is None:
@@ -344,44 +368,71 @@ class Estimator:
         if isinstance(train_configs, dict):
             train_configs = [train_configs,] * n_epochs
 
+        n_trainsets = len(trainset_paths)
+        n_subepochs = train_configs[0]['num_epochs']
+        n_batches, remainder = divmod(cutoff, train_configs[0]['batch_size'])
+        if float(remainder) != 0.0:
+            n_batches += 1
+        del remainder
+        shape = (n_epochs, n_trainsets, n_subepochs, n_batches)
+
+        for config in train_configs:
+            if config['num_epochs'] != n_subepochs or config['batch_size'] != train_configs[0]['batch_size']:
+                raise ValueError('Dataset partition training requires same number of epochs and batch size for '
+                                 f'each TrainSet: You have {n_subepochs} vs {config["num_epochs"]} epochs '
+                                 f'and {train_configs[0]["batch_size"]} vs {config["batch_size"]} batch_size.')
+
         n_pre = len(self.metadata['train_history'])
 
-        full_epochs, full_loss = [], []
-        full_vali_epochs, full_vali_loss = [], []
+        full_epochs, full_losses = np.zeros(shape), np.zeros(shape)
+        if validation is not None:
+            validation = check_format(validation)  # From here onwards it will be a TrainSet if it wasn't already
+            vali_batches, remainder = divmod(len(validation), train_configs[0]['batch_size'])
+            if float(remainder) != 0.0:
+                vali_batches += 1
+            del remainder
+            vali_shape = (n_epochs, n_trainsets, n_subepochs, vali_batches)
+            full_vali_epochs, full_vali_losses = np.zeros(vali_shape), np.zeros(vali_shape)
+
         for epoch in range(n_epochs):
             print(f'Starting substage {epoch}\n')
-            epochs, loss = [], []
-            vali_epochs, vali_loss = [], []
             for i, set_path in enumerate(trainset_paths):
 
+                print(f'Loading TrainSet(s) {[Path(path).name for path in set_path]}')
+                # Loads and scrambles trainset. Also imposes size = cutoff for all of them
                 trainset = TrainSet.load(set_path, name=f'{i+1} of {len(trainset_paths)}')
+                if type(trainset_random_state) is str:
+                    n_data = len(trainset)
+                    if n_data >= cutoff > 0:
+                        condition = trainset.tail(n_data - cutoff).index
+                        trainset.drop(condition, inplace=True)
+                    elif n_data < cutoff:
+                        raise ValueError("Argument 'cutoff' has be greater or equal to TrainSet length"
+                                         f'Current values: length {n_data} < cutoff {cutoff}')
+                    else:
+                        continue  # Dangerous unless you make sure all TrainSets have same length
+                else:
+                    trainset = trainset.sample(n=cutoff, random_state=trainset_random_state)
+                    # print(trainset)
 
-                # TEST ONLY
-                d = trainset.index
-                c = d.str.split('.')
-                a = [c[x][-1] for x in range(len(d))]
-                # print(a)
-                b = np.array([int(x) for x in a])
-                condition = trainset[b > 100].index
-                trainset = trainset.drop(condition)
+                # TEST ONLY: currently only works for my specific labels
+                # d = trainset.index
+                # c = d.str.split('.')
+                # a = [c[x][-1] for x in range(len(d))]
+                # # print(a)
+                # b = np.array([int(x) for x in a])
+                # condition = trainset[b > cutoff].index
+
 
                 loss_data = self._train(trainset, traindir, train_configs[epoch], validation, preprocess,
                                         save_loss=False, make_plot=False)
-                epochs.append(list(loss_data[0]))  # Maybe list(...) of .flatten() if problematic
-                loss.append(list(loss_data[1]))
+                del trainset
+                # print(f'data shape: {loss_data[0].shape}, validation shape: {loss_data[2].shape}')
+                full_epochs[epoch, i, :, :] = loss_data[0]  # Maybe list(...) of .flatten() if problematic
+                full_losses[epoch, i, :, :] = loss_data[1]
                 if validation:
-                    vali_epochs.append(list(loss_data[2]))
-                    vali_loss.append(list(loss_data[3]))
-            full_epochs.append(epochs)  # Maybe list(...) of .flatten() if problematic
-            full_loss.append(loss)
-            if validation:
-                full_vali_epochs.append(vali_epochs)
-                full_vali_loss.append(vali_loss)
-
-        full_epochs = np.array(full_epochs)
-        full_losses = np.array(full_loss)
-        full_vali_epochs = np.array(full_vali_epochs)
-        full_vali_losses = np.array(full_vali_loss)
+                    full_vali_epochs[epoch, i, :, :] = loss_data[2]
+                    full_vali_losses[epoch, i, :, :] = loss_data[3]
 
         zero_pad = 3  # Hard coded for now
         n_post = len(self.metadata['train_history'])

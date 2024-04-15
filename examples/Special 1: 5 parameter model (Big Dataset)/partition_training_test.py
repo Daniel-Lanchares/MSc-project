@@ -1,6 +1,7 @@
 from pathlib import Path
 import numpy as np
 import pandas as pd
+from torchvision.models.resnet import Bottleneck
 
 from dtempest.gw import CBCEstimator
 
@@ -9,7 +10,7 @@ from dtempest.core.common_utils import load_rawsets, seeds2names, get_extractor
 from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
-n = 5
+n = 4
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -26,7 +27,8 @@ params_list = [
 
 net_config = {
     'pytorch_net': True,
-    'depths': [2, 3, 4, 2],  # [2, 2, 2, 2] for 18, [3, 4, 6, 3] for resnet 34 and with BottleNeck for resnet50
+    'depths': [2, 2, 2, 2],  # [2, 2, 2, 2] for 18, [3, 4, 6, 3] for resnet 34 and with BottleNeck for resnet50
+    # 'block': Bottleneck,
     'output_features': 128
 }
 
@@ -37,8 +39,8 @@ train_config = {
     'checkpoint_every_x_epochs': None,  # Not yet implemented
     'batch_size': 64,
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.0001,  # 0.00025,
-    'weight_check_max_val': 1e8,
+    'learning_rate': 0.00005,  # 0.00025,
+    'weight_check_max_val': 1e5,
     'weight_check_max_iter': 80,
     'grad_clip': None,
     # 'sched_kwargs': {
@@ -52,7 +54,7 @@ train_config = {
 flow_config = {  # Smaller flow, hopefully doesn't overfit
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
-    'num_flow_steps': 5,
+    'num_flow_steps': 6,
 
     'base_transform': trans.mask_affine_autoreg,
     'base_transform_kwargs': {
@@ -72,31 +74,31 @@ flow_config = {  # Smaller flow, hopefully doesn't overfit
 
 
 def load_40set_paths(seed1: int) -> pd.DataFrame | None:
-    print('Loading path for combined Trainset ' + f'{seed1} to {seed1 + 39}')
-    paths = [trainset_dir / '20_sets' / (f'{seed1} to {seed1 + 19}.' + ', '.join(params_list) + '.pt'),]
-             # trainset_dir / '20_sets' / (f'{seed1 + 20} to {seed1 + 39}.' + ', '.join(params_list) + '.pt')]
+    # print('Loading path for combined Trainset ' + f'{seed1} to {seed1 + 39}')
+    paths = [trainset_dir / '20_sets' / (f'{seed1} to {seed1 + 19}.' + ', '.join(params_list) + '.pt'),
+             trainset_dir / '20_sets' / (f'{seed1 + 20} to {seed1 + 39}.' + ', '.join(params_list) + '.pt')]
     return paths
 
-# from typing import get_args
-# print(get_args(load_40set_paths.__annotations__['return']))
-# if pd.DataFrame in get_args(load_40set_paths.__annotations__['return']):
-#     print('True!!')
-# else:
-#     print('Nop')
 
 # Model version within training test
-m = 0
+m = 4
 
 vali_seeds = 999
 valiset = load_rawsets(rawdat_dir, seeds2names(vali_seeds))
 valiset.change_parameter_name('d_L', to='luminosity_distance')
 valiset = convert_dataset(valiset, params_list)
 
-flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv1.{n}.{m}',
-                    workdir=traindir, mode='net+flow', preprocess=pre_process)
+if m == 0:
+    '''Flow creation'''
+    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv1.{n}.{m}',
+                        workdir=traindir, mode='net+flow', preprocess=pre_process)
+else:
+    '''Training continuation of previous model'''
+    flow = CBCEstimator.load_from_file(traindir / f'Spv1.{n}.{m - 1}.pt')
+    flow.rename(f'Spv1.{n}.{m}')
 
 dataset_paths = [load_40set_paths(seed) for seed in [0, 40, 80]]
-flow.train(dataset_paths, traindir, [train_config,] * 2, valiset)
+flow.train(dataset_paths, traindir, [train_config, ] * 1, valiset, cutoff=40000)
 flow.save_to_file(traindir / f'{flow.name}.pt')
 # print(flow.get_training_stage_seeds())
 
@@ -106,6 +108,24 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 
 
 '''Loss Log
+1.6.0
+Average train: 13.7067
+Average valid: 13.2754
+
+1.6.1
+Average train: 12.9411
+Average valid: 12.8607
+
+
+1.5.1 Then started to overfit
+Average train: 13.1281
+Average valid: 12.9518
+
+
+1.4.3 Random shuffle might work long term. Might not
+Average train: 11.6143
+Average valid: 12.1842
+
 1.4.2.B6 (first trainset, overfitted after)
 Average train: 11.3257
 Average valid: 12.0903          <---- Best!

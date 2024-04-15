@@ -231,7 +231,7 @@ def plot_hist(dataset, params_list, fig=None, figsize=None,
     """
 
     dataset = check_format(dataset)
-    data = extract_parameters(dataset, params_list)
+    data = extract_parameters(dataset, params_list, jargon)
 
     if fig is None:
         fig = plt.figure(figsize=figsize)
@@ -248,8 +248,12 @@ def plot_hist(dataset, params_list, fig=None, figsize=None,
     return fig
 
 
-def plot_hists(dataset, param_array: np.ndarray, fig=None, figsize=None,
-               jargon: dict = None, *hist_args, **hist_kwargs):
+def plot_hists(dataset,
+               param_array: np.ndarray,
+               fig=None,
+               figsize=None,
+               jargon: dict = None,
+               *hist_args, **hist_kwargs):
     """
     Plots histograms of the given parameter array on one or more subplots
 
@@ -283,7 +287,7 @@ def plot_hists(dataset, param_array: np.ndarray, fig=None, figsize=None,
     layout = param_array.shape
     flat_array = param_array.flatten()
     for i in range(len(flat_array)):
-        fig = plot_hist(dataset, flat_array[i], fig=fig, figsize=figsize, jargon=jargon,
+        fig = plot_hist(dataset, [flat_array[i],], fig=fig, figsize=figsize, jargon=jargon,
                         plot_layout=(*layout, i + 1), *hist_args, **hist_kwargs)
     plt.tight_layout()
     return fig
@@ -320,8 +324,7 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
 
         """
     if jargon is None:
-        raise RuntimeError('You have no jargon defined: '
-                           'To properly plot images a jargon["default_title_maker"] is required')
+        jargon = no_jargon
 
     if fig is None:
         fig = plt.figure(figsize=figsize)
@@ -340,8 +343,13 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
     return fig
 
 
-def plot_images(dataset, index_array: np.ndarray, fig=None, figsize=None,
-                title_maker=None, jargon: dict = None, *imshow_args, **imshow_kwargs):
+def plot_images(dataset,
+                index_array: np.ndarray,
+                fig=None,
+                figsize=None,
+                title_maker=None,
+                jargon: dict = None,
+                *imshow_args, **imshow_kwargs):
     """
         Plots histograms of the given parameter array on one or more subplots
 

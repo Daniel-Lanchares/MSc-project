@@ -6,18 +6,31 @@ import matplotlib.pyplot as plt
 
 from dtempest.core.common_utils import load_losses, Pallete, colour_cycler
 
-path = Path("/media/daniel/easystore/Daniel/MSc-files/Examples/Special 1. 5 parameter model (Big Dataset)")
+path = Path("/media/daniel/easystore/Daniel/MSc-files/Examples/Special 0. 4 parameter model")
 
-n = 5
-epochs, losses = torch.load(path / f'training_test_{n}' / 'loss_data_Spv1.5.0_stages_000_to_003' / 'loss_data.pt')
+n = 10
+epochs, losses = torch.load(path / f'training_test_{n}' / f'loss_data_Spv0.{n}.0_stage_000' / 'loss_data.pt')
 vali_epochs, vali_losses = torch.load(path / f'training_test_{n}' /
-                                      'loss_data_Spv1.5.0_stages_000_to_003' / 'validation_data.pt')
-# print(epochs.shape)
-# print(epochs)
-# a, b, c, d = epochs.shape
-# print(epochs.reshape((a*b*c, d)))
+                                      f'loss_data_Spv0.{n}.0_stage_000' / 'validation_data.pt')
+print(epochs.shape)
+print(epochs)
+a, b = epochs.shape
+
+# Not correct # TODO
+a, b = epochs.shape
+epochs = epochs.reshape((1, 1, a, b))
+
+a, b = losses.shape
+losses = losses.reshape((1, 1, a, b))
+
+a, b = vali_epochs.shape
+vali_epochs = vali_epochs.reshape((1, 1, a, b))
+
+a, b = vali_losses.shape
+vali_losses = vali_losses.reshape((1, 1, a, b))
 
 
+# These are for partition training
 def process_partition_epochs(arr):
     a, b, c, d = arr.shape
     reshaped = arr.reshape((a * b * c, d))

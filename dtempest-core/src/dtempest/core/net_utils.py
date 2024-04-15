@@ -61,7 +61,7 @@ def create_full_net(input_channels: int = None, output_length: int = None,
             print(PrintStyle.red + 'WARNING: You need to provide "output_features" to build a flow from a PyTorch '
                                    f'ResNet\nSetting argument to default ({output_features})' + PrintStyle.reset)
         net = models.ResNet(block=block, layers=depths, *args, **kwargs)
-        net.fc = nn.Linear(in_features=512, out_features=output_features)
+        net.fc = nn.Linear(in_features=512*block.expansion, out_features=output_features)
         return net
 
     if (input_channels is None) or (output_length is None):

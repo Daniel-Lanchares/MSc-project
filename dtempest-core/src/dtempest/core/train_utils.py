@@ -7,12 +7,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.optim import SGD, Adam
-from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR, StepLR
-from torch.utils.data import Dataset
+from torch.optim.lr_scheduler import ReduceLROnPlateau, MultiStepLR, StepLR, CosineAnnealingLR
+from torch.utils.data import Dataset, DataLoader
 
 from dtempest.core.common_utils import RawSet
 
-sched_dict = {'Plateau': ReduceLROnPlateau, 'StepLR': StepLR, 'MultiStepLR': MultiStepLR}
+sched_dict = {'Plateau': ReduceLROnPlateau,
+              'StepLR': StepLR,
+              'MultiStepLR': MultiStepLR,
+              'cosine': CosineAnnealingLR}
 opt_dict = {'SGD': SGD, 'Adam': Adam}
 loss_dict = {'MSE': nn.MSELoss, 'CE': nn.CrossEntropyLoss}
 
@@ -50,6 +53,9 @@ class TrainSet:
             # First let's deal with some special, often used, cases
             if attr == 'T':
                 return self.transpose()
+            if attr == 'sample':
+                return Overarcher(getattr(self._df, attr), self)
+
             # This allows it to transform the internal dataframe and return a new TrainSet... when it works
             try:
                 if hasattr(type(self._df), attr) and hasattr(getattr(self._df, attr), '__annotations__'):
@@ -175,6 +181,7 @@ class FeederDataset(Dataset):
         return self.x[ix], self.y[ix]
 
 
+# count = 0
 def reset_all_weights(model: nn.Module) -> None:
     """
     refs:
@@ -183,18 +190,31 @@ def reset_all_weights(model: nn.Module) -> None:
         - https://pytorch.org/docs/stable/generated/torch.nn.Module.html
     """
 
+    # global count
+
     @torch.no_grad()
     def weight_reset(m: nn.Module):
+        # global count
         # - check if the current module has reset_parameters & if it is callable call it on m
         reset_parameters = getattr(m, "reset_parameters", None)
+        # if reset_parameters is not None:
+        # count += 1
         if callable(reset_parameters):
             m.reset_parameters()
+        # if isinstance(m, nn.Conv2d):  # This should target the embedding net
+        #     print(m)
+        #     print(m.weight.data)
+        #     torch.nn.init.xavier_uniform_(m.weight.data)
 
     # Applies fn recursively to every submodule see: https://pytorch.org/docs/stable/generated/torch.nn.Module.html
     model.apply(fn=weight_reset)
+    # print(f'number of components with reset: {count}')
+    # count = 0
 
 
-def _check_weight_viability(model, data, max_val, max_iter, counter: int = 1):
+def _check_weight_viability(model, data, max_val, max_iter, counter: int = 1, tenfold_at_limit: bool | int = False):
+    if type(tenfold_at_limit) is bool:
+        tenfold_at_limit = int(not tenfold_at_limit)
     x, y = data
     loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
     print(f'Viability test {counter}')
@@ -209,24 +229,69 @@ def _check_weight_viability(model, data, max_val, max_iter, counter: int = 1):
             reset_all_weights(model)
             counter += 1
             del loss_value  # Might be causing memory issues
-            time.sleep(2)  # Gives time to read if someone is taking a look, won't affect hours long training
-            _check_weight_viability(model, data, max_val, max_iter, counter)
+            time.sleep(1)  # Gives time to read if someone is taking a look, won't affect hours long training
+            _check_weight_viability(model, data, max_val, max_iter, counter, tenfold_at_limit)
             return
         else:
+            if 0 < tenfold_at_limit < 10:  # Keeps track of how many times it doubles max value, shouldn't be hardcoded
+                print(f'Doubling maximum initial loss to {10*max_val} and trying again')
+                counter = 0
+                tenfold_at_limit += 1
+                _check_weight_viability(model, data, 10*max_val, max_iter, counter, tenfold_at_limit)
+                return
+
             print(f'Reached {max_iter} iterations without success. Training from current weights')
             return
 
 
-def check_weight_viability(model, dataloader, max_val: float = None, max_iter: int = None) -> None:
+def check_weight_viability(model, dataloader, max_val: float = None, max_iter: int = None,
+                           double_at_limit: bool = False) -> None:
     if max_val is None:
         max_val = 1e4
     if max_iter is None:
         max_iter = 20
+    elif max_iter == 0:
+        return
     for data in dataloader:
         # Not really designed to loop
         # Hacky way of doing it, but torch's DataLoader doesn't define other 'proper' way of accessing items
-        _check_weight_viability(model, data, max_val, max_iter)
+        _check_weight_viability(model, data, max_val, max_iter, double_at_limit)
         return
+
+
+def special_weight_check(model, trainset, batch_size: int, max_val: float = None, max_iter: int = None,
+                         counter: int = 0) -> TrainSet:
+    if max_val is None:
+        max_val = 1e4
+    if max_iter is None:
+        max_iter = 20
+    elif max_iter == 0:
+        return trainset
+
+    dataloader = DataLoader(FeederDataset(trainset), batch_size=batch_size)
+    for data in dataloader:
+        # Not really designed to loop
+        # Hacky way of doing it, but torch's DataLoader doesn't define other 'proper' way of accessing items
+        x, y = data
+        loss_value = -model.log_prob(inputs=y.float(), context=x).mean()
+        print(f'Viability test {counter}')
+        print(f'Initial loss: {loss_value.item():.4}')
+        if loss_value < max_val:
+            print(f'Loss under {max_val}. Test passed')
+            return trainset
+        else:
+            print(f'Loss over {max_val}. Test failed')
+            if counter <= max_iter:
+                print('Trying again')
+                trainset = trainset.sample(frac=1, random_state=counter)
+                counter += 1
+                del loss_value  # Might be causing memory issues
+                time.sleep(1)  # Gives time to read if someone is taking a look, won't affect hours long training
+                trainset = special_weight_check(model, trainset, batch_size, max_val, max_iter, counter)
+                return trainset
+            else:
+                print(f'Reached {max_iter} iterations without success. Training from current weights')
+                return trainset
 
 
 def train_model(model, dataloader, train_config, valiloader):

@@ -24,6 +24,8 @@ GWlatex_labels = {
     "tilt_2_infinity_only_prec_avg": (
         r"$\theta_{2,\infty}^{\mathrm{only\, prec\, avg}} [\mathrm{rad}]$"
     ),
+    "chi_1": r"$chi_{1}$",
+    "chi_2": r"$chi_{2}$",
     "phi_12": r"$\phi_{12} [\mathrm{rad}]$",
     "mass_2": r"$m_{2} [M_{\odot}]$",
     "mass_1": r"$m_{1} [M_{\odot}]$",

@@ -11,21 +11,25 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
+n = 11
+m = 0
+letter = 'c'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_6'
+traindir0 = train_dir / f'training_test_{n}'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv2.6.0.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.{n}.{m}{letter}.pt')
+flow0.rename(f'Spv2.{n}.{m}{letter}')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
 
-seed = 999
+seed = 32
 event = f'{seed}.00001'
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
@@ -45,25 +49,52 @@ image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
 
-fig = sdict.plot(type='corner', truths=label)  # TODO: check how to plot only certain parameters
+smooth = 1.4
 
+fig = plt.figure(figsize=(12, 10))
+select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
+fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
+                 smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
 fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 
-# For discarding problematic samples
+# Problems with skymap as always. Cannot translate histogram to projection.
+# import numpy as np
+# corner_colors = ['#0072C1', '#b30909', '#8809b3', '#b37a09']
+# corner_kwargs = dict(
+#     bins=50, smooth=0.9, label_kwargs=dict(fontsize=16),
+#     title_kwargs=dict(fontsize=16), color=corner_colors[0],
+#     truth_color='tab:orange', quantiles=[0.16, 0.84],
+#     levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.)),
+#     plot_density=False, plot_datapoints=True, fill_contours=True,
+#     max_n_ticks=3
+# )
+#
+# import corner
+# import cartopy.crs as ccrs
+# fig2 = plt.figure()
+# ax = fig2.add_subplot(projection=ccrs.Mollweide())
+# # ax.hist2d(sdict['ra'], sdict['dec'])
+# corner.hist2d(sdict['ra'], sdict['dec'], ax=ax, bins=50, smooth=0.9,
+#               color=corner_colors[0], levels=(1 - np.exp(-0.5), 1 - np.exp(-2), 1 - np.exp(-9 / 2.))
+#               , plot_datapoints=True, fill_contours=True, new_fig=False)
+
+
+# import numpy as np
+# # For discarding problematic samples
 # ras, decs, dists = [], [], []
 # for i, dec in enumerate(sdict['dec']):
 #     if abs(dec) < 3.14/2:
 #         ras.append(sdict['ra'][i])
 #         decs.append(dec)
-#         dists.append(sdict['d_L'][i])
+#         dists.append(sdict['luminosity_distance'][i])
 # sdict['ra'] = np.array(ras)
 # sdict['dec'] = np.array(decs)
-# sdict['d_L'] = np.array(dists)
-
-# fig = sdict.plot(type='skymap')
+# sdict['luminosity_distance'] = np.array(dists)
+#
+# fig = sdict.plot(type='skymap', multi_resolution=False, distance_map=False)
 
 
 # print(both.xs('chirp_mass', level='parameters'))
@@ -85,9 +116,78 @@ samples = flow0.sample_and_log_prob(3000, trainset['images'][event])
 print(-torch.mean(samples[1]))
 plt.show()
 
+'''Overfitted models on Dataset 32
+| parameters<br>(flow Spv2.11.0c)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   47.2296    |   46.432     |           2.49937   |                         2.37798   |                          2.34017   | $M_{\odot}$    |
+| mass_ratio                        |    0.607361  |    0.595741  |           0.0757192 |                         0.0757643 |                          0.0785897 | $ø$            |
+| chi_eff                           |    0.0343048 |    0.015586  |           0.0618838 |                         0.0594163 |                          0.0580426 | $ø$            |
+| luminosity_distance               | 1477.59      | 1450.36      |         208.641     |                       219.281     |                        220.717     | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.50883   |    1.58521   |           0.436029  |                         0.460305  |                          0.531358  | $\mathrm{rad}$ |
+| ra                                |    3.06231   |    3.10922   |           0.443229  |                         0.420114  |                          0.416669  | $\mathrm{rad}$ |
+| dec                               |    0.0485658 |    0.0304754 |           0.161322  |                         0.148832  |                          0.152212  | $\mathrm{rad}$ |
+'''
+
 
 ''' May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
 Dataset 999
+
+The outliers disappeared. Hurray!
+| parameters<br>(flow Spv2.11.1b)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   46.6857    |   46.8531    |            6.40334  |                          7.46788  |                           7.56606  | $M_{\odot}$    |
+| mass_ratio                        |    0.59372   |    0.613444  |            0.167201 |                          0.205522 |                           0.234237 | $ø$            |
+| chi_eff                           |    0.0200059 |    0.0106512 |            0.153697 |                          0.196035 |                           0.18748  | $ø$            |
+| luminosity_distance               | 1423.68      | 1502.02      |          504.259    |                        542.621    |                         643.14     | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.50703   |    1.54645   |            0.628357 |                          0.727088 |                           0.811886 | $\mathrm{rad}$ |
+| ra                                |    2.97571   |    3.17589   |            1.2064   |                          1.35867  |                           1.39369  | $\mathrm{rad}$ |
+| dec                               |    0.0330927 |    0.016705  |            0.443452 |                          0.556694 |                           0.562161 | $\mathrm{rad}$ |
+
+tensor(10.2778, grad_fn=<NegBackward0>)
+
+
+There must be some outliers there messing accuracies, but on the hole looks more promising
+
+| parameters<br>(flow Spv2.11.0b)   |      median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|-------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   48.9862   |   46.8531    |            10.3157  |                         13.2431   |                          14.9606   | $M_{\odot}$    |
+| mass_ratio                        |    0.688181 |    0.613444  |            11.3669  |                          0.561256 |                           0.649539 | $ø$            |
+| chi_eff                           |    0.029012 |    0.0106512 |            36.3937  |                          0.311046 |                           0.310274 | $ø$            |
+| luminosity_distance               | 1363.74     | 1502.02      |           610.314   |                        643.006    |                         936.173    | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.61243  |    1.54645   |             0.85096 |                          0.852267 |                           0.875135 | $\mathrm{rad}$ |
+| ra                                |    2.90556  |    3.17589   |             2.73766 |                          1.96147  |                           1.99715  | $\mathrm{rad}$ |
+| dec                               |   -0.180777 |    0.016705  |            30.4319  |                          1.15556  |                           1.11038  | $\mathrm{rad}$ |
+
+tensor(15.2436, grad_fn=<NegBackward0>)
+
+
+rq-coupling isn't working either. Can't really understand why...
+
+| parameters<br>(flow Spv2.11.0)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|----------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                       |   45.5633    |   46.8531    |           14.7641   |                          6.09637  |                           6.09549  | $M_{\odot}$    |
+| mass_ratio                       |    0.529639  |    0.613444  |            0.218426 |                          0.519895 |                           0.523457 | $ø$            |
+| chi_eff                          |    0.0198313 |    0.0106512 |            0.186828 |                          0.348805 |                           0.347934 | $ø$            |
+| luminosity_distance              | 1233.25      | 1502.02      |          835.888    |                        358.505    |                         359.273    | $\mathrm{Mpc}$ |
+| theta_jn                         |    1.44589   |    1.54645   |            0.630862 |                          0.70363  |                           0.703917 | $\mathrm{rad}$ |
+| ra                               |    2.78381   |    3.17589   |            1.63494  |                          1.16108  |                           1.16174  | $\mathrm{rad}$ |
+| dec                              |   -0.066339  |    0.016705  |            0.560934 |                          0.698657 |                           0.698254 | $\mathrm{rad}$ |
+
+tensor(15.1434, grad_fn=<NegBackward0>)
+
+Nope. rq-autoreg is definitely not working.
+
+| parameters<br>(flow Spv2.10.0c)   |      median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|-------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   42.7519   |   46.8531    |           15.0181   |                          5.95563  |                           5.94535  | $M_{\odot}$    |
+| mass_ratio                        |    0.39884  |    0.613444  |            0.272702 |                          0.447544 |                           0.44744  | $ø$            |
+| chi_eff                           |   -0.063454 |    0.0106512 |            0.194349 |                          0.459363 |                           0.459419 | $ø$            |
+| luminosity_distance               | 1131.05     | 1502.02      |          845.477    |                        293.727    |                         294.123    | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.31224  |    1.54645   |            0.648112 |                          0.71178  |                           0.712358 | $\mathrm{rad}$ |
+| ra                                |    3.04301  |    3.17589   |            1.60138  |                          0.949061 |                           0.948814 | $\mathrm{rad}$ |
+| dec                               |   -0.310683 |    0.016705  |            0.617699 |                          0.695898 |                           0.696072 | $\mathrm{rad}$ |
+
+tensor(14.8169, grad_fn=<NegBackward0>)
 
 Similar results than 2.0.3 at higher loss scores. Training better? And hopefully will start overfitting much latter.
 | parameters<br>(flow Spv2.6.0)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
