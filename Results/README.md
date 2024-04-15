@@ -29,9 +29,9 @@ The current development of the project has various semi-open fronts:
 
 
 - **A 5 parameter model**. Where effective spin has been substituted for mass ratio to allow mass reconstruction and 
-  the full sky position has been trained over. This is the model with the best scores so far, as it was trained with 
-  a dataset of 20000 images for its first stage and a further 20000 for its single-epoch second stage. Validation 
-  around _logprob 12.8_.
+  the full sky position has been trained over. This is the model family with the best scores so far. This first one was 
+  trained with a dataset of 20000 images for its first stage and a further 20000 for its single-epoch second stage. 
+  Validation around _logprob 12.8_.
 
 | parameters<br>(flow Spv1.3.1b)   |       median |       truth |   accuracy<br>(MSE) | precision_left<br>(1.0 $\sigma$ ) | precision_right<br>(1.0 $\sigma$ ) | units          |
 |----------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
@@ -42,6 +42,19 @@ The current development of the project has various semi-open fronts:
 | dec                              |    0.0674703 |    0.016705 |             0.44408 | 0.616734                          | 0.593469                           | $\mathrm{rad}$ |
 
 <img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_5p_special_model/Spv2.3.1b_corner.png">
+
+  **Currently, best performing model is Spv1.4.2.B6 (_lp ~12.1_), which was trained in sub-epochs (to give more detail on memory). 
+  This technique gave interesting results, but is difficult to integrate with variable learning rates**.
+
+| parameters<br>(flow Spv1.4.2.B6)   |       median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|------------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                         |   46.38      |   46.8531   |            6.17356  |                           7.14091 |                           7.34712  | $M_{\odot}$    |
+| mass_ratio                         |    0.592085  |    0.613444 |            0.168598 |                           0.20229 |                           0.232095 | $ø$            |
+| luminosity_distance                | 1470.63      | 1502.02     |          512.427    |                         552.524   |                         652.895    | $\mathrm{Mpc}$ |
+| ra                                 |    3.05953   |    3.17589  |            1.11721  |                           1.30878 |                           1.2566   | $\mathrm{rad}$ |
+| dec                                |   -0.0498375 |    0.016705 |            0.404739 |                           0.48882 |                           0.533604 | $\mathrm{rad}$ |
+
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Spv1.4.2.B6_corner.png">
 
 - **A 6 parameter model**. These being chirp mass, mass ratio, effective spin, luminosity distance, right ascension 
   and declination. The models showed promise training to _logprob ~14_, but have been difficult to train any further.
@@ -62,12 +75,7 @@ The current development of the project has various semi-open fronts:
 
 <img width="1000" alt="estimation of 32.00005" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Overfitting_32.00005_logprob_8.20.png">
 
-  Currently, best performing model is 1.4.2.B3, which was trained in sub-epochs (give more detail). This technique gave
-  interesting results, but is difficult to integrate with variable learning rates.
-
-<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Spv1.4.2.B3_corner.png">
-
-Given the apparent proneness to overfitting motivated me to increase number of parameters and dataset size. However, 
+The apparent proneness to overfitting motivated me to increase number of parameters and dataset size. However, 
 increases on the parameter-space dimension also imply more difficulty avoiding exploding gradients on the first batches
 of training. **Right now I have a 7p highly overfitted model (_logprob ~3.7_ on train data) with 60k dataset**.
 These models are created interlacing affine and rq-coupling transforms.
