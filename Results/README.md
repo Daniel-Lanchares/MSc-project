@@ -12,9 +12,14 @@ The current development of the project has various semi-open fronts:
   estimations, which again, is to be expected considering those estimations tend to regress over the full 15 
   dimensional parameter space.
 
+<!---
   ![comparison of GW150914](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_chirp_mass_estimator/comparison_v0.4.2_GW150914.png)
   ![comparison of GW170823](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_chirp_mass_estimator/comparison_v0.4.2_GW170823.png)
-  
+-->  
+
+<img width="500"  src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_chirp_mass_estimator/comparison_v0.4.2_GW150914.png" alt="comparison of GW150914"/>
+<img width="500"  src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_chirp_mass_estimator/comparison_v0.4.2_GW170823.png" alt="comparison of GW170823"/>
+
   Might revisit with more training data to see if it can be improved.
 
 
@@ -36,12 +41,12 @@ The current development of the project has various semi-open fronts:
 | ra                               |    3.11678   |    3.17589  |             1.21031 | 1.41312                           | 1.43929                            | $\mathrm{rad}$ |
 | dec                              |    0.0674703 |    0.016705 |             0.44408 | 0.616734                          | 0.593469                           | $\mathrm{rad}$ |
 
-![estimation of 999.00001](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_5p_special_model/Spv2.3.1b_corner.png)
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_5p_special_model/Spv2.3.1b_corner.png">
 
 - **A 6 parameter model**. These being chirp mass, mass ratio, effective spin, luminosity distance, right ascension 
   and declination. The models showed promise training to _logprob ~14_, but have been difficult to train any further.
   
-  Currently doing an overfitting test to know whether the distributions **can** be learnt, even if that model wouldn't 
+  Performed an overfitting test to know whether the distributions **can** be learnt, even if that model wouldn't 
   be able to predict anything new. To do this I started from a partially trained flow and fed it the same dataset of 
   around 1000 images over and over. It currently stands at _logprob ~7.5_, but it is fairly clear that the model can 
   learn the necessary distributions.
@@ -55,4 +60,28 @@ The current development of the project has various semi-open fronts:
 | ra         |                  0.776586 | rad         |
 | dec        |                  0.433297 | rad         |
 
-![estimation of 32.00005](https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Overfitting_32.00005_logprob_8.20.png)
+<img width="1000" alt="estimation of 32.00005" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Overfitting_32.00005_logprob_8.20.png">
+
+  Currently, best performing model is 1.4.2.B3, which was trained in sub-epochs (give more detail). This technique gave
+  interesting results, but is difficult to integrate with variable learning rates.
+
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Spv1.4.2.B3_corner.png">
+
+Given the apparent proneness to overfitting motivated me to increase number of parameters and dataset size. However, 
+increases on the parameter-space dimension also imply more difficulty avoiding exploding gradients on the first batches
+of training. **Right now I have a 7p highly overfitted model (_logprob ~3.7_ on train data) with 60k dataset**.
+These models are created interlacing affine and rq-coupling transforms.
+
+| parameters<br>(flow Spv2.11.0c)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   47.2296    |   46.432     |           2.49937   |                         2.37798   |                          2.34017   | $M_{\odot}$    |
+| mass_ratio                        |    0.607361  |    0.595741  |           0.0757192 |                         0.0757643 |                          0.0785897 | $ø$            |
+| chi_eff                           |    0.0343048 |    0.015586  |           0.0618838 |                         0.0594163 |                          0.0580426 | $ø$            |
+| luminosity_distance               | 1477.59      | 1450.36      |         208.641     |                       219.281     |                        220.717     | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.50883   |    1.58521   |           0.436029  |                         0.460305  |                          0.531358  | $\mathrm{rad}$ |
+| ra                                |    3.06231   |    3.10922   |           0.443229  |                         0.420114  |                          0.416669  | $\mathrm{rad}$ |
+| dec                               |    0.0485658 |    0.0304754 |           0.161322  |                         0.148832  |                          0.152212  | $\mathrm{rad}$ |
+
+<img width="1000" alt="estimation of 32.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_7p_model/Spv2.11.0c_corner.png">
+
+A 10 parameter model has been attempted, but first training batches proved challenging
