@@ -54,7 +54,7 @@ The current development of the project has various semi-open fronts:
 | ra                                 |    3.05953   |    3.17589  |            1.11721  |                           1.30878 |                           1.2566   | $\mathrm{rad}$ |
 | dec                                |   -0.0498375 |    0.016705 |            0.404739 |                           0.48882 |                           0.533604 | $\mathrm{rad}$ |
 
-<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_6p_model/Spv1.4.2.B6_corner.png">
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_5p_special_model/Spv1.4.2.B6_corner.png">
 
 - **A 6 parameter model**. These being chirp mass, mass ratio, effective spin, luminosity distance, right ascension 
   and declination. The models showed promise training to _logprob ~14_, but have been difficult to train any further.
