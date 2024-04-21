@@ -92,4 +92,26 @@ These models are created interlacing affine and rq-coupling transforms.
 
 <img width="1000" alt="estimation of 32.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_7p_model/Spv2.11.0c_corner.png">
 
-A 10 parameter model has been attempted, but first training batches proved challenging
+By rescaling some of the parameters to avoid large numbers training has become much more stable, enabling similar 
+results as before but on validation data:
+
+| parameters<br>(flow Spv2.12.0e)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   46.9626     |   46.8531    |            6.06843  |                          6.50902  |                           6.47826  | $M_{\odot}$    |
+| mass_ratio                        |    0.59587    |    0.613444  |            0.165765 |                          0.186067 |                           0.214523 | $ø$            |
+| chi_eff                           |    0.0245531  |    0.0106512 |            0.149719 |                          0.178095 |                           0.174689 | $ø$            |
+| luminosity_distance               | 1473.97       | 1502.02      |          505.016    |                        557.215    |                         637.261    | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.59081    |    1.54645   |            0.627239 |                          0.814805 |                           0.784108 | $\mathrm{rad}$ |
+| ra                                |    3.10284    |    3.17589   |            1.10779  |                          1.32065  |                           1.16288  | $\mathrm{rad}$ |
+| dec                               |    0.00524479 |    0.016705  |            0.409863 |                          0.47796  |                           0.513514 | $\mathrm{rad}$ |
+
+<img width="1000" alt="estimation of 32.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_7p_model/Spv2.12.0e_corner.png">
+
+A 10 parameter model has been attempted, but first training batches proved challenging until the introduction of rescaling. 
+Currently at:
+
+-Validation data
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_10p_model/Spv3.0.0_corner.png">
+
+-Training data
+<img width="1000" alt="estimation of 999.00001" src="https://raw.githubusercontent.com/Daniel-Lanchares/MSc-project/main/Results/Pictures_10p_model/Spv3.0.0_32.1_corner.png">

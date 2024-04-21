@@ -31,7 +31,7 @@ flow_config = {  # As it is now, it explodes instantly
     'input_dim': len(params_list),
     'context_dim': extractor_config['n_features'],
     'num_flow_steps': 5,
-    'base_transform_kwargs': {  # These I will study in more detail #TODO
+    'base_transform_kwargs': {  # These I will study in more detail #TODO adapt to new architecture
         'hidden_dim': 4,
         'num_transform_blocks': 2,
         # 'num_bins': 8

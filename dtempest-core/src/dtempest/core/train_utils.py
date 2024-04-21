@@ -139,7 +139,7 @@ class Overarcher:
         return type(self.wrapper)(data=self.method(*args, **kwargs), name=self.wrapper.name)
 
 
-def check_trainset_format(trainset: TrainSet | str | Path):
+def check_trainset_format(trainset: TrainSet | str | Path) -> TrainSet:
     """
         Allows functions to be given either a dataset tensor or its path.
 
@@ -149,7 +149,7 @@ def check_trainset_format(trainset: TrainSet | str | Path):
 
         Returns
         -------
-        dataset : torch.tensor.
+        dataset : TrainSet.
 
         """
     if isinstance(trainset, str | Path):
@@ -294,6 +294,19 @@ def special_weight_check(model, trainset, batch_size: int, max_val: float = None
                 return trainset
 
 
+def loss_print(epoch: int, losses: list, code='train', fmt='.3'):
+    temp_loss = np.array(losses).mean(axis=1)
+    deviation = np.array(losses).std(axis=1)
+    if epoch > 0:
+        msg = (f'\nAverage {code}: {temp_loss[-1]:{fmt}}±{deviation[-1]:{fmt}}, '
+               f'Delta: {(temp_loss[-1] - temp_loss[-2]):{fmt}} '
+               f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:{fmt}}%)\n')
+    else:
+        msg = f'\nAverage {code}: {temp_loss[0]:{fmt}}±{deviation[0]:{fmt}}\n'
+    # Consider logging to file
+    print(msg)
+
+
 def train_model(model, dataloader, train_config, valiloader):
     n_epochs = train_config['num_epochs']
     lr = train_config['learning_rate']
@@ -336,12 +349,7 @@ def train_model(model, dataloader, train_config, valiloader):
         epochs.append(batch_epochs)
         losses.append(batch_losses)
 
-        temp_loss = np.array(losses).mean(axis=1)
-        if epoch > 0:
-            print(f'\nAverage train: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
-                  f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
-        else:
-            print(f'\nAverage train: {temp_loss[0]:.6}\n')
+        loss_print(epoch, losses, code='train')
 
         if valiloader is not None:
             n_batches = len(valiloader)
@@ -358,12 +366,7 @@ def train_model(model, dataloader, train_config, valiloader):
             vali_epochs.append(batch_epochs)
             vali_losses.append(batch_losses)
 
-            temp_loss = np.array(vali_losses).mean(axis=1)
-            if epoch > 0:
-                print(f'\nAverage valid: {temp_loss[-1]:.6}, Delta: {(temp_loss[-1] - temp_loss[-2]):.6} '
-                      f'({(temp_loss[-1] - temp_loss[-2]) / temp_loss[-2] * 100:.6}%)\n')
-            else:
-                print(f'\nAverage valid: {temp_loss[0]:.6}\n')
+            loss_print(epoch, vali_losses, code='valid')
 
         # Update Scheduler
         if sched is not None:

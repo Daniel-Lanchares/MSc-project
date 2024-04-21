@@ -11,9 +11,9 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
-n = 11
+n = 13
 m = 0
-letter = 'c'
+letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -29,13 +29,24 @@ flow0.rename(f'Spv2.{n}.{m}{letter}')
 flow0.eval()
 # flow1.eval()
 
-seed = 32
+seed = 999
 event = f'{seed}.00001'
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
-sset0 = flow0.sample_set(3000, trainset[:][:], name=f'flow {flow0.name}')
+
+# flow0.scales = flow0._get_scales({'chirp_mass': 100})
+# print(flow0.scales)
+# # print(flow0.sample_and_log_prob(10, trainset['images'][event]))
+# print(trainset.loc[:, 'labels'])
+# print(flow0.rescale_trainset(trainset).loc[:, 'labels'])
+#
+# raise RuntimeError
+
+# flow0.scales = flow0._get_scales({'chirp_mass': 100, 'luminosity_distance': 1000})
+
+sset0 = flow0.sample_set(3000, trainset[:][:1], name=f'flow {flow0.name}')
 
 full = sset0.full_test()
 full_rel = sset0.full_test(relative=True)
@@ -112,8 +123,8 @@ print()
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples = flow0.sample_and_log_prob(3000, trainset['images'][event])
-print(-torch.mean(samples[1]))
+samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
+print(-torch.mean(logprob))
 plt.show()
 
 '''Overfitted models on Dataset 32
@@ -129,8 +140,52 @@ plt.show()
 '''
 
 
-''' May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
+''' 
 Dataset 999
+
+With 15 epochs on 8 flow steps
+| parameters<br>(flow Spv2.12.0e)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   46.9626     |   46.8531    |            6.06843  |                          6.50902  |                           6.47826  | $M_{\odot}$    |
+| mass_ratio                        |    0.59587    |    0.613444  |            0.165765 |                          0.186067 |                           0.214523 | $ø$            |
+| chi_eff                           |    0.0245531  |    0.0106512 |            0.149719 |                          0.178095 |                           0.174689 | $ø$            |
+| luminosity_distance               | 1473.97       | 1502.02      |          505.016    |                        557.215    |                         637.261    | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.59081    |    1.54645   |            0.627239 |                          0.814805 |                           0.784108 | $\mathrm{rad}$ |
+| ra                                |    3.10284    |    3.17589   |            1.10779  |                          1.32065  |                           1.16288  | $\mathrm{rad}$ |
+| dec                               |    0.00524479 |    0.016705  |            0.409863 |                          0.47796  |                           0.513514 | $\mathrm{rad}$ |
+
+tensor(-3.7287, grad_fn=<NegBackward0>)
+
+
+Very promising. Should try with partition training, since bottleneck seems to be dataset size
+| parameters<br>(flow Spv2.12.2d)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   46.7641     |   46.8531    |            6.20039  |                          7.29332  |                           7.40737  | $M_{\odot}$    |
+| mass_ratio                        |    0.58499    |    0.613444  |            0.168269 |                          0.193812 |                           0.230616 | $ø$            |
+| chi_eff                           |    0.0255881  |    0.0106512 |            0.151438 |                          0.19157  |                           0.184108 | $ø$            |
+| luminosity_distance               | 1453.07       | 1502.02      |          506.387    |                        560.767    |                         663.704    | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.52871    |    1.54645   |            0.628249 |                          0.754193 |                           0.835799 | $\mathrm{rad}$ |
+| ra                                |    3.07529    |    3.17589   |            1.12716  |                          1.38749  |                           1.21794  | $\mathrm{rad}$ |
+| dec                               |    0.00275306 |    0.016705  |            0.410235 |                          0.497041 |                           0.524447 | $\mathrm{rad}$ |
+
+tensor(-2.9264, grad_fn=<NegBackward0>)
+
+
+It is actually a lot better than this. There might be some outliers again
+| parameters<br>(flow Spv2.12.0b)   |        median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|-----------------------------------|---------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                        |   46.2602     |   46.8531    |            6.41877  |                          7.43916  |                           7.65078  | $M_{\odot}$    |
+| mass_ratio                        |    0.59075    |    0.613444  |            0.168266 |                          0.199083 |                           0.230326 | $ø$            |
+| chi_eff                           |    0.00966992 |    0.0106512 |            0.154607 |                          0.19325  |                           0.189644 | $ø$            |
+| luminosity_distance               | 1398.58       | 1502.02      |          510.727    |                        571.823    |                         690.36     | $\mathrm{Mpc}$ |
+| theta_jn                          |    1.55495    |    1.54645   |            0.630948 |                          0.770661 |                           0.818363 | $\mathrm{rad}$ |
+| ra                                |    3.12848    |    3.17589   |            1.1736   |                          1.41299  |                           1.26849  | $\mathrm{rad}$ |
+| dec                               |    0.00700715 |    0.016705  |            0.431095 |                          0.514045 |                           0.545946 | $\mathrm{rad}$ |
+
+tensor(-2.2363, grad_fn=<NegBackward0>)
+
+
+May be starting to overfit. Discuss in memory. Higher dimensional models may fare better. Might reduce complexity.
 
 The outliers disappeared. Hurray!
 | parameters<br>(flow Spv2.11.1b)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |

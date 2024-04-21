@@ -11,7 +11,7 @@ from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
 n = 0  # Training test number
-m = 0  # Model version within training test
+m = 2  # Model version within training test
 letter = ''
 vali_seeds = 999
 
@@ -42,14 +42,14 @@ net_config = {
 }
 
 pre_process = None
-n_epochs = 20
+n_epochs = 10
 train_config = {
     'num_epochs': n_epochs,
     'checkpoint_every_x_epochs': None,  # Not yet implemented
-    'batch_size': 32,
+    'batch_size': 64,
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.001,  # 0.00025,
-    'weight_check_max_val': 5e3,
+    'learning_rate': 0.001,  # 0.001,
+    'weight_check_max_val': 3e1,
     'weight_check_tenfold': True,
     'weight_check_max_iter': 30,  # No weight check because it doesn't work on rq transforms
     'grad_clip': None,
@@ -61,9 +61,10 @@ train_config = {
 }
 
 flow_config = {  # Smaller flow, hopefully doesn't overfit
+    'scales': {'chirp_mass': 100, 'luminosity_distance': 1000},
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
-    'num_flow_steps': 4,
+    'num_flow_steps': 3,
 
     'base_transform': trans.d_rq_coupling_and_affine,
     'base_transform_kwargs': {
@@ -95,21 +96,21 @@ valiset = convert_dataset(valiset, params_list)
 
 if m == 0:
     '''Flow creation'''
-    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv2.{n}.{m}{letter}',
+    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv3.{n}.{m}{letter}',
                         workdir=traindir, mode='net+flow', preprocess=pre_process)
 else:
     '''Training continuation of previous model'''
-    flow = CBCEstimator.load_from_file(traindir / f'Spv2.{n}.{m - 1}{letter}.pt')
-    flow.rename(f'Spv2.{n}.{m}{letter}')
+    flow = CBCEstimator.load_from_file(traindir / f'Spv3.{n}.{m - 1}{letter}.pt')
+    flow.rename(f'Spv3.{n}.{m}{letter}')
 
 # print(flow.model)
 
 shuffle_rng = np.random.default_rng(seed=m)  # For reproducibility of 'random' shuffling of dataset
 
-size = 20  # Images (thousands)
+size = 50  # Images (thousands)
 paths = [trainset_dir / '10_sets' / (f'{0 + offset} to {0 + offset + 9}.' + ', '.join(params_list) + '.pt')
          for offset in range(0, size, 10)]
-dataset = TrainSet.load(paths, name='60k_test').sample(n=size*1000, random_state=shuffle_rng)
+dataset = TrainSet.load(paths, name=f'{size}k_test').sample(n=size*1000, random_state=shuffle_rng)
 
 # dataset = flow.preprocess(dataset)
 #
@@ -133,36 +134,11 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 
 
 '''Loss Log
-2.11.0c Almost 9 hours. No progress on validation but by far best example of overfitted model. Try more params.
-Average train: 3.73326, Delta: -0.168509 (-4.31879%)
-Average valid: 46.1798, Delta: -0.26829 (-0.577612%)
+3.0.0   Validation starting to overfit, apparently, ~2 hours
+Average train: 3.47981, Delta: -0.255121 (-6.83067%)
+Average valid: 4.72383, Delta: -0.0384901 (-0.808223%)
 
-2.11.0b mixing rq-coupling and affine looks promising. Minimal instabilities.
-Average train: 16.4052, Delta: -0.25478 (-1.5293%)
-Average valid: 16.5259, Delta: -0.293212 (-1.74332%)
-
-2.11.1b Seems to be close to its limit, though not bad at all
-Average train: 12.9182, Delta: -0.116433 (-0.893263%)
-Average valid: 13.4413, Delta: -0.0827971 (-0.612219%)
-
-2.11.2b 5 epochs and did pretty much nothing. That was all it wrote.
-Average train: 12.8579, Delta: -0.0272555 (-0.211526%)
-Average valid: 13.373, Delta: 0.00647292 (0.0484265%)
-
-2.11.0 Using dingo's rq-coupling. Didn't seem to overfit at any point, but was probably about to. Less volatile. Yes it did
-Average train: 24.0299, Delta: -0.884898 (-3.5517%)
-Average valid: 23.9978, Delta: -0.424156 (-1.73678%)
-
-
-2.10.0c
-Average train: 28.0106, Delta: -2.03309 (-6.76711%)
-Average valid: 26.9496, Delta: -15.5281 (-36.556%)  Had an instability on the previous. Not as meaningful an improvement
-
-
-5p model
-1.4.2.B6 (first trainset, overfitted after)
-Average train: 11.3257
-Average valid: 12.0903          <---- Best!
-
-
+3.0.1   Smaller model. Similar overfitting as larger than 3.0.0 ~1.5 hours, ovft at ~lp 4.9
+Average train: 0.449±0.449, Delta: -0.389 (-46.4%)
+Average valid: 8.73±0.702, Delta: 0.535 (6.53%)
 '''

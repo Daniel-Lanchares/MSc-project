@@ -94,6 +94,12 @@ class Estimator:
         self.device = device
 
         self._preprocess = preprocess
+
+        if 'scales' in flow_config.keys():
+            self.scales = self._get_scales(flow_config['scales'])
+        else:
+            self.scales = torch.ones(len(self.param_list))
+
         if mode == 'extractor+flow':
             self.model = create_flow(emb_net=create_feature_extractor(**net_config), **flow_config)
         elif mode == 'net+flow':
@@ -112,6 +118,19 @@ class Estimator:
             return self.metadata[item]
         else:
             return self.__dict__[item]
+
+    def _get_scales(self, scales_config):
+        if type(scales_config) is list:
+            assert len(scales_config) == len(self.param_list), ('Scales need no be of same length as '
+                                                                'list of parameters: '
+                                                                f'{len(scales_config)} != {len(self.param_list)}')
+            return scales_config
+        elif type(scales_config) is dict:
+            return torch.tensor(
+                [scales_config[param] if param in scales_config.keys() else 1 for param in self.param_list]
+            )
+        else:
+            return torch.ones(len(self.param_list))
 
     def model_to_device(self, device):
         """
@@ -167,7 +186,9 @@ class Estimator:
             context = self.preprocess(context)
         elif len(context.shape) == 3:
             context = context.expand(1, *context.shape)
-        return self.model.sample(num_samples, context)
+        samples = self.model.sample(num_samples, context)
+        samples[:] = torch.mul(samples[:], self.scales)
+        return samples
 
     def log_prob(self, inputs, context, preprocess: bool = True):
         if preprocess:
@@ -181,7 +202,9 @@ class Estimator:
             context = self.preprocess(context)
         elif len(context.shape) == 3:
             context = context.expand(1, *context.shape)
-        return self.model.sample_and_log_prob(num_samples, context)
+        samples, logprobs = self.model.sample_and_log_prob(num_samples, context)
+        samples[:] = torch.mul(samples[:], self.scales)
+        return samples, logprobs
 
     def get_training_stage_seeds(self, stage: int = -1) -> list[int] | None:
         if len(self.metadata['train_history']) == 0:
@@ -244,6 +267,11 @@ class Estimator:
             trainset.loc[i, 'labels'] = torch.tensor(trainset['labels'][i])
         return trainset
 
+    def rescale_trainset(self, trainset: TrainSet):
+        for event in trainset.index:
+            trainset.loc[event, 'labels'] = np.divide(trainset.loc[event, 'labels'], self.scales.numpy())
+        return trainset
+
     def _append_training_stage(self, train_config):
         n = len(self.metadata['train_history'])
         self.metadata['train_history'].update({f'stage {n}': train_config})
@@ -265,7 +293,10 @@ class Estimator:
 
         # TODO: default train_config attributes
 
+        # Load trainset and rescale (Inner model works with rescaled parameters only)
         trainset = check_trainset_format(trainset)
+        trainset = self.rescale_trainset(trainset)
+
         traindir = Path(traindir)
         # Check if traindir exists and make if it does not
         traindir.mkdir(parents=True, exist_ok=True)
@@ -281,6 +312,7 @@ class Estimator:
 
         if validation is not None:
             validation = self.preprocess(check_format(validation))
+            validation = self.rescale_trainset(validation)
             validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
 
         # When training for the first time, check if weights give a reasonable first guess and if not reset them
@@ -366,7 +398,7 @@ class Estimator:
             else:
                 raise ValueError("If train_configs is of type 'dict' you need to provide n_epochs")
         if isinstance(train_configs, dict):
-            train_configs = [train_configs,] * n_epochs
+            train_configs = [train_configs, ] * n_epochs
 
         n_trainsets = len(trainset_paths)
         n_subepochs = train_configs[0]['num_epochs']
@@ -400,7 +432,7 @@ class Estimator:
 
                 print(f'Loading TrainSet(s) {[Path(path).name for path in set_path]}')
                 # Loads and scrambles trainset. Also imposes size = cutoff for all of them
-                trainset = TrainSet.load(set_path, name=f'{i+1} of {len(trainset_paths)}')
+                trainset = TrainSet.load(set_path, name=f'{i + 1} of {len(trainset_paths)}')
                 if type(trainset_random_state) is str:
                     n_data = len(trainset)
                     if n_data >= cutoff > 0:
@@ -422,7 +454,6 @@ class Estimator:
                 # # print(a)
                 # b = np.array([int(x) for x in a])
                 # condition = trainset[b > cutoff].index
-
 
                 loss_data = self._train(trainset, traindir, train_configs[epoch], validation, preprocess,
                                         save_loss=False, make_plot=False)
