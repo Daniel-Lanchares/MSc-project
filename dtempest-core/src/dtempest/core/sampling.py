@@ -9,7 +9,7 @@ from scipy import stats as st
 from .pesum_deps.samples_dict import SamplesDict
 
 from .config import no_jargon
-from .common_utils import PrintStyle, handle_multi_index_format
+from .common_utils import PrintStyle, handle_multi_index_format, merge_headers
 from .conversion_utils import get_param_units
 
 # class SampleArray(np.ndarray):
@@ -145,7 +145,25 @@ class MSEDataFrame:
                                     for param in self._df.index]
         return temp_df
 
-    def to_markdown(self, units: bool = True, **kwargs):
+    def handle_verbose(self, temp_df, language):
+        # if temp_df.index.name in self.verbose:
+        #     temp_df.index.name += break_char[language] + str(self.verbose[temp_df.index.name])
+
+        if language == 'markdown':
+            names_verbose = [name + '<br>' + str(self.verbose[name])
+                             if name in self.verbose else name for name in temp_df.columns]
+        elif language == 'latex':
+            names_verbose = [r'\makecell{' + name + r"\\" + str(self.verbose[name]) + '}'
+                             if name in self.verbose else name for name in temp_df.columns]
+        else:
+            print(PrintStyle.red+'Warning: language {language} not understood. '
+                                 'Resorting to non verbose names'+PrintStyle.reset)
+            names_verbose = temp_df.colums
+
+        temp_df.columns = pd.Index(names_verbose)
+        return temp_df
+
+    def to_table(self, language: str, units: bool = True, **kwargs):
 
         if units and self._df.index.name != 'events':
             # Second condition excludes mono-parameter cross-sections. I cannot recover parameter unit
@@ -162,21 +180,22 @@ class MSEDataFrame:
         if type(temp_df.index) is pd.MultiIndex:
             temp_df, kwargs = handle_multi_index_format(temp_df, **kwargs)
 
-        if temp_df.index.name in self.verbose:
-            temp_df.index.name += '<br>' + str(self.verbose[temp_df.index.name])
-
-        names_verbose = [name + '<br>' + str(self.verbose[name])
-                         if name in self.verbose else name for name in temp_df.columns]
-        temp_df.columns = pd.Index(names_verbose)
+        temp_df = self.handle_verbose(temp_df, language)
 
         # print('|'+self.name.center(len(temp_df.to_markdown(**kwargs).split('\n')[0])-2)+'|')
-        return temp_df.to_markdown(**kwargs)
+        if language == 'markdown':
+            return temp_df.to_markdown(**kwargs)
+        elif language == 'latex':
+            # Double replace tries to avoid miss-formatting of underscores. Not bulletproof, but functional
+            string_table = (temp_df.to_latex(**kwargs)
+                            .replace('_', r'\_').replace(r'\_{', '_{').replace('$ø$', r'ø').replace('tabular', 'tblr'))
+            return merge_headers(string_table)
 
     def to_latex(self, units: bool = True, **kwargs):
-        if units:
-            temp_df = self._temp_unit_df()
-            return temp_df.to_latex(**kwargs)
-        return self._df.to_latex(**kwargs)
+        return self.to_table('latex', units, **kwargs)
+
+    def to_markdown(self, units: bool = True, **kwargs):
+        return self.to_table('markdown', units, **kwargs)
 
     # def __repr__(self):
     #     temp_df = self._df.to_frame()
@@ -259,14 +278,20 @@ class SampleDict(SamplesDict):
 
     def select_truths(self, labels, order: str = 'internal'):
         if order == 'internal':
-            return [self.truth[param] for param in self.truth.keys() if param in labels]
+            truths = [self.truth[param] for param in self.truth.keys() if param in labels]
         elif order == 'external':
-            return [self.truth[param] for param in labels if param in self.truth.keys()]
+            truths = [self.truth[param] for param in labels if param in self.truth.keys()]
         else:
             raise ValueError(f"Couldn't understand order argument '{order}'. "
                              "Order can be either 'internal' to follow the SampleDict ordering of params "
                              "or 'external' to follow ordering of given iterable.")
+        if len(truths) == 0:
+            return None
+        else:
+            return truths
 
+    def from_file(self, filepath):
+        return super()
 
     # def plot_1d_hists(self, param_array, fig=None, figsize=None, quantiles=(0.16, 0.84),
     #                   average=False, same=False, **kwargs):
@@ -380,8 +405,11 @@ class SampleDict(SamplesDict):
     #         ax.legend()
     #     return fig
 
-    def get_one_dimensional_median_and_error_bar(self, key, fmt='.2f',
-                                                 quantiles=None):
+    def get_one_dimensional_median_and_error_bar(self,
+                                                 key,
+                                                 fmt='.2f',
+                                                 quantiles: tuple = None,
+                                                 **extra_title_kwargs):
         # Credit: https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/core/result.py
         """ Calculate the median and error bar for a given key
 
@@ -534,10 +562,10 @@ class SampleDict(SamplesDict):
             #  Add the titles
             for i, par in enumerate(params):
                 median_data = self.get_one_dimensional_median_and_error_bar(
-                        par, quantiles=kwargs.get('quantiles'), **kwargs.get('title_kwargs', {}))
+                    par, quantiles=kwargs.get('quantiles', None), **kwargs.get('title_kwargs', {}))
                 ax = axes[i + i * len(params)]
                 if ax.title.get_text() == '':
-                    ax.set_title(median_data.string)
+                    ax.set_title(median_data.string, **kwargs.get('title_kwargs', {}))
                 medians.append(median_data.median)
             medians = np.array(medians)
             if kwargs.get('medians', None) is not None:

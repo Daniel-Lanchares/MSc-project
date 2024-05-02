@@ -8,8 +8,8 @@ from pycbc.catalog import Merger as pycbc_Merger
 from pycbc.catalog import _aliases
 from pycbc.catalog.catalog import get_source
 
-from dtempest.core.conversion_utils import make_image
-from dtempest.gw.conversion import gw_jargon
+from dtempest.core.conversion_utils import make_image, make_array
+from dtempest.gw.conversion import cbc_jargon
 from dtempest.gw.generation.parallel import process_strain
 from dtempest.gw.generation.parallel import default_config as default_gen_config
 
@@ -68,14 +68,14 @@ class Merger(pycbc_Merger, dict):
                 self.qtransforms[ifo] = np.zeros_like(self.qtransforms[self.detectors[0]])
 
     def __getitem__(self, key):
-        if key == 'q-transforms':
+        if key == 'q-transforms' or key == 'image':
             return self.qtransforms
-        elif key == 'parameters':
+        elif key == 'parameters' or key == 'labels':
             return {parameter: self.data[parameter] for parameter in self.available_parameters}
         elif key == 'id':
             return self.common_name
         else:
-            raise KeyError(f'{type(self)} does not have the atribute "{key}"')
+            raise KeyError(f'{type(self)} does not have the attribute "{key}"')
 
     def __repr__(self):
         items = list(self['parameters'].items())
@@ -89,10 +89,16 @@ class Merger(pycbc_Merger, dict):
             channels[ifo] = process_strain(self.strain(ifo), ifo, q_window)
         return channels
 
+    def make_image(self):
+        return make_image(self, cbc_jargon)
+
+    def make_array(self):
+        return make_array(self, cbc_jargon)
+
     def imshow(self, ax=None, *args, **kwargs):
         if ax is None:
-            return plt.imshow(make_image(self, gw_jargon), *args, **kwargs)
-        return ax.imshow(make_image(self, gw_jargon), *args, **kwargs)
+            return plt.imshow(make_image(self, cbc_jargon), *args, **kwargs)
+        return ax.imshow(make_image(self, cbc_jargon), *args, **kwargs)
 
 
 default_config = {

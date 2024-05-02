@@ -4,68 +4,79 @@ import matplotlib.pyplot as plt
 import torch
 
 from dtempest.gw import CBCEstimator
+from dtempest.gw.sampling import CBCSampleDict
 from dtempest.core.common_utils import load_rawsets, seeds2names
 
 from dtempest.gw.conversion import convert_dataset, plot_image
+from dtempest.gw.catalog import Catalog
+
+from pesummary.utils.samples_dict import MultiAnalysisSamplesDict
+from pesummary.gw.conversions import convert
 
 '''
 
 '''
-n = 13
+n = 0
 m = 0
-letter = 'b'
+letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
-train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
+train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
-
-flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.{n}.{m}{letter}.pt')
-flow0.rename(f'Spv2.{n}.{m}{letter}')
-
-# flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
 flow0.eval()
-# flow1.eval()
 
-seed = 999
-event = f'{seed}.00001'
+catalog = Catalog('gwtc-1')
+# testset = convert_dataset(catalog.mergers.values(), flow0.param_list)
+# sset0 = flow0.sample_set(3000, testset, name=f'flow {flow0.name}')
 
-dataset = load_rawsets(rawdat_dir, seeds2names(seed))
-dataset.change_parameter_name('d_L', to='luminosity_distance')
-trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
+# event = 'GW150914'
+event = 'GW170823'
 
-# flow0.scales = flow0._get_scales({'chirp_mass': 100})
-# print(flow0.scales)
-# # print(flow0.sample_and_log_prob(10, trainset['images'][event]))
-# print(trainset.loc[:, 'labels'])
-# print(flow0.rescale_trainset(trainset).loc[:, 'labels'])
+# event = 'GW200129_065458'
+# event = 'GW200224_222234'
+# event = 'GW200220_061928' Not working yet
+# gwtc = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
+gwtc = convert(CBCSampleDict.from_file(catalog_dir / f'{event}_GWTC-1.hdf5'))
 #
-# raise RuntimeError
+# print(gwtc.parameters)
 
-# flow0.scales = flow0._get_scales({'chirp_mass': 100, 'luminosity_distance': 1000})
+# gwtc = convert(CBCSampleDict.from_file(files_dir / f'GWTC-3 Samples/{event}_cosmo.h5')['C01:Mixed'])
 
-sset0 = flow0.sample_set(3000, trainset[:][:5], name=f'flow {flow0.name}')
-
-full = sset0.full_test()
-full_rel = sset0.full_test(relative=True)
+# full = sset0.full_test()
+# full_rel = sset0.full_test(relative=True)
 
 
-#
-# sdict = sset0[event]
-# fig = sdict.plot(type='corner', truths=trainset['labels'][event])
+# image = testset['images'][event]
+# label = testset['labels'][event]
+image = catalog[event].make_array()
+sdict = flow0.sample_dict(10000, context=image)
 
-image = trainset['images'][event]
-label = trainset['labels'][event]
-sdict = flow0.sample_dict(10000, context=image, reference=label)
+multi = MultiAnalysisSamplesDict({"GWTC-1": gwtc, f"Estimator {flow0.name}": sdict})
 
 smooth = 1.4
 
-fig = plt.figure(figsize=(12, 10))
+# fig = plt.figure(figsize=(12, 10))
 select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
-fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
-                 smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
+
+# TODO: Rewrite pesummary comparison analysis. Open samples_dict, plot, configuration and corner.core if needed
+kwargs = {
+    'module': 'gw',
+    # 'medians': True,
+    'show_titles': True,
+    'title_quantiles': [0.16, 0.5, 0.84],
+    'smooth': smooth,
+    'label_kwargs': {'fontsize': 10},
+    'labelpad': 0.2,
+    'title_kwargs': {'fontsize': 10}
+}
+fig = multi.plot(type='corner', parameters=select_params, **kwargs)
+plt.tight_layout(h_pad=-1, w_pad=-0.3)
+# fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
+#                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
 fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
@@ -110,14 +121,10 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 # print(both.xs('chirp_mass', level='parameters'))
 # print(full.pp_mean().to_markdown(tablefmt='github'))
-print(full.pp_mean().to_latex(float_format="%.3f"))
-print()
-print(full_rel.pp_mean().to_latex(float_format="%.3f"))
-# print(full_rel.pp_mean().to_markdown(floatfmt=".3f"))
 # Idea: The model is incredible at estimating the average of a parameter over the entire dataset
 # Idea: I suppose due to being trained with datasets with identical mass distribution (uniform 5 to 100 for each m)
 # Idea: Might be interesting to make a dataset with different distributions
-print()
+# print()
 # cross = full.xs('chirp_mass', level='parameters')
 # print(cross.to_markdown(tablefmt='github'))
 # cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
@@ -127,22 +134,9 @@ print()
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
-print(-torch.mean(logprob))
+# samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
+# print(-torch.mean(logprob))
 plt.show()
-
-'''Overfitted models on Dataset 32
-| parameters<br>(flow Spv2.11.0c)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
-|-----------------------------------|--------------|--------------|---------------------|-----------------------------------|------------------------------------|----------------|
-| chirp_mass                        |   47.2296    |   46.432     |           2.49937   |                         2.37798   |                          2.34017   | $M_{\odot}$    |
-| mass_ratio                        |    0.607361  |    0.595741  |           0.0757192 |                         0.0757643 |                          0.0785897 | $ø$            |
-| chi_eff                           |    0.0343048 |    0.015586  |           0.0618838 |                         0.0594163 |                          0.0580426 | $ø$            |
-| luminosity_distance               | 1477.59      | 1450.36      |         208.641     |                       219.281     |                        220.717     | $\mathrm{Mpc}$ |
-| theta_jn                          |    1.50883   |    1.58521   |           0.436029  |                         0.460305  |                          0.531358  | $\mathrm{rad}$ |
-| ra                                |    3.06231   |    3.10922   |           0.443229  |                         0.420114  |                          0.416669  | $\mathrm{rad}$ |
-| dec                               |    0.0485658 |    0.0304754 |           0.161322  |                         0.148832  |                          0.152212  | $\mathrm{rad}$ |
-'''
-
 
 ''' 
 Dataset 999

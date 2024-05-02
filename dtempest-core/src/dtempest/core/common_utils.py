@@ -282,3 +282,22 @@ def handle_multi_index_format(temp_df: pd.DataFrame,
         format_kwargs['index'] = False
 
     return temp_df, format_kwargs
+
+
+def merge_headers(string_table: str):
+    """
+    Final stop of latex table custom formatting
+
+    Parameters
+    ----------
+    string_table : latex table as a continuous string
+
+    Returns The string with merged headers (index name should now show next to column names)
+    -------
+
+    """
+    rows = string_table.split(r' \\')
+    problem_name = rows.pop(1).split('&')[0]
+    rows[0] = rows[0].replace(r'\toprule', r'\toprule'+problem_name)
+
+    return r' \\'.join(rows)

@@ -44,6 +44,28 @@ def make_image(data: dict | np.ndarray, jargon: dict = None):
     return image_arr
 
 
+def make_array(data: dict, jargon: dict = None):
+    """
+    Creates array apt to be fed to models
+    Parameters
+    ----------
+    data : 
+    jargon : 
+
+    Returns
+    -------
+
+    """  # TODO: Unfinished
+    if jargon is None:
+        jargon = no_jargon
+
+    image = data[jargon['image']]
+    image_arr = np.array((image[jargon['R']],  # Different shape from make_image
+                          image[jargon['G']],
+                          image[jargon['B']]))
+    return image_arr
+
+
 # Introduce more redefinition functions if needed
 
 # Load Raw_dataset.pt
@@ -200,7 +222,7 @@ def get_param_units(parameter, jargon: dict = None):
 
 def plot_hist(dataset, params_list, fig=None, figsize=None,
               plot_layout=(1, 1, 1), jargon: dict = None,
-              *hist_args, **hist_kwargs,):
+              *hist_args, **hist_kwargs, ):
     """
     Plots a histogram of a given parameter list on a single subplot
 
@@ -287,7 +309,7 @@ def plot_hists(dataset,
     layout = param_array.shape
     flat_array = param_array.flatten()
     for i in range(len(flat_array)):
-        fig = plot_hist(dataset, [flat_array[i],], fig=fig, figsize=figsize, jargon=jargon,
+        fig = plot_hist(dataset, [flat_array[i], ], fig=fig, figsize=figsize, jargon=jargon,
                         plot_layout=(*layout, i + 1), *hist_args, **hist_kwargs)
     plt.tight_layout()
     return fig

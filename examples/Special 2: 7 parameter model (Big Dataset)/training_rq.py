@@ -12,7 +12,7 @@ import dtempest.core.flow_utils as trans
 
 n = 13  # Training test number
 m = 0  # Model version within training test
-letter = ''
+letter = 'b'
 vali_seeds = 999
 
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
@@ -57,7 +57,7 @@ train_config = {
 }
 
 flow_config = {  # Smaller flow, hopefully doesn't overfit
-    'scales': {'chirp_mass': 80, 'luminosity_distance': 1000, 'mass_ratio': 0.8},
+    'scales': {'chirp_mass': 80, 'luminosity_distance': 2000, 'theta_jn': 2*np.pi, 'ra': 2*np.pi, 'dec': np.pi},
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
     'num_flow_steps': 5,
@@ -105,7 +105,7 @@ shuffle_rng = np.random.default_rng(seed=m)  # For reproducibility of 'random' s
 # dataset_paths = [load_40set_paths(seed) for seed in [0, 40, 80]]
 # dataset_paths += [[trainset_dir / '10_sets' / (f'{120} to {129}.' + ', '.join(params_list) + '.pt'),
 #                    trainset_dir / '10_sets' / (f'{130} to {139}.' + ', '.join(params_list) + '.pt')]]
-size = 40  # Images (thousands)
+size = 60  # Images (thousands)
 paths = [trainset_dir / '20_sets' / (f'{0 + offset} to {0 + offset + 19}.' + ', '.join(params_list) + '.pt')
          for offset in range(0, size, 20)]
 dataset = TrainSet.load(paths, name=f'{size}k_test').sample(n=size*1000, random_state=shuffle_rng)
@@ -132,6 +132,11 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 
 
 '''Loss Log
+2.13.0b FIX WAVEFORM_EJEMPLO.PNG shouldn't show up on repository. 20 epochs was to much. Trying 10
+Average train: -5.65±0.407, Delta: -0.197 (3.62%)
+Average valid: -4.79±0.768, Delta: -0.0584 (1.23%)
+
+
 2.13.0  Changed scales: chp_m to 80, q to 0.8 (hopefully train better... Nop. better to downscale only)
 Average train: 0.0528±0.38, Delta: -0.267 (-83.5%)  <-- First actual deviation data
 Average valid: 1.43±0.87, Delta: 0.0125 (0.882%)

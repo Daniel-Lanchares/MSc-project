@@ -493,7 +493,7 @@ class Estimator:
                     name: str = None,
                     reference: torch.Tensor = None,
                     preprocess: bool = True,
-                    _class_dict: dict = None):
+                    _class_dict: dict = None) -> SampleDict:
         samples = self.sample(num_samples, context, preprocess).detach()
         if params is None:
             params = self.param_list
@@ -516,7 +516,7 @@ class Estimator:
                    params: torch.Tensor = None,
                    name: str = None,
                    preprocess: bool = True,
-                   _class_dict: dict = None):
+                   _class_dict: dict = None) -> SampleSet:
         if params is None:
             params = self.param_list
         if _class_dict is None:

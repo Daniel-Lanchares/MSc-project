@@ -1,4 +1,5 @@
 from functools import partialmethod
+from pathlib import Path
 
 from dtempest.core.sampling import SampleDict, SampleSet, MSEDataFrame, MSESeries
 from .config import cbc_jargon
@@ -14,6 +15,21 @@ class CBCMSEDataFrame(MSEDataFrame):
 
 class CBCSampleDict(SampleDict):
     __init__ = partialmethod(SampleDict.__init__, jargon=cbc_jargon, _series_class=CBCMSESeries)
+
+    @classmethod
+    def from_file(cls, filename: Path | str, **kwargs):
+        """Initialize the SamplesDict class with the contents of a (GW) result file
+
+        Parameters
+        ----------
+        filename: str
+            path to the result file you wish to load.
+        **kwargs: dict
+            all kwargs are passed to the pesummary.io.read function
+        """
+        from pesummary.io import read
+
+        return read(filename, **kwargs).samples_dict
 
     @property
     def plotting_map(self):

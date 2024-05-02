@@ -12,7 +12,9 @@ import bilby
 from bilby.gw.detector.psd import PowerSpectralDensity
 from joblib import Parallel, delayed
 
-"""pyth
+from dtempest.core.common_utils import identity
+
+"""
 Script provided by Osvaldo Freitas
 """
 
@@ -739,7 +741,7 @@ def get_data(targ_snrs=None,
     if use_tqdm:
         auxfunc = tqdm
     else:
-        auxfunc = lambda x: x
+        auxfunc = identity
     if parallel:
         out = Parallel(n_jobs=12, backend='multiprocessing')(
             delayed(get_inj_ifos)(snr,

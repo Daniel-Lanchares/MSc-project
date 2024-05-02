@@ -15,11 +15,11 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 1. 5 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_4'
+traindir0 = train_dir / 'training_test_5'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.4.2.B6.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.5.0.pt')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
@@ -89,7 +89,17 @@ plt.show()
 ''' 
 Dataset 999
 
-Best model so far
+Best model so far, even if slight overfit messed with chirp_mass stats
+
+| parameters<br>(flow Spv1.5.0)   |        median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
+|---------------------------------|---------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|
+| chirp_mass                      |   46.7319     |   46.8531   |            6.34786  |                          6.24599  |                           6.17761  | $M_{\odot}$    |
+| mass_ratio                      |    0.587214   |    0.613444 |            0.171082 |                          0.185286 |                           0.223415 | $ø$            |
+| luminosity_distance             | 1469.41       | 1502.02     |          516.253    |                        534.803    |                         610.801    | $\mathrm{Mpc}$ |
+| ra                              |    3.04095    |    3.17589  |            1.11     |                          1.20846  |                           1.09656  | $\mathrm{rad}$ |
+| dec                             |    0.00937497 |    0.016705 |            0.405553 |                          0.445464 |                           0.474712 | $\mathrm{rad}$ |
+
+tensor(-6.6698, grad_fn=<NegBackward0>)
 
 | parameters<br>(flow Spv1.4.2.B6)   |       median |       truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
 |------------------------------------|--------------|-------------|---------------------|-----------------------------------|------------------------------------|----------------|

@@ -8,7 +8,17 @@ from dtempest.core.common_utils import load_rawsets, seeds2names, get_extractor
 from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
-n = 10
+
+def load_40set_paths(seed1: int):
+    # print('Loading path for combined Trainset ' + f'{seed1} to {seed1 + 39}')
+    paths = [trainset_dir / '20_sets' / (f'{seed1} to {seed1 + 19}.' + ', '.join(params_list) + '.pt'),
+             trainset_dir / '20_sets' / (f'{seed1 + 20} to {seed1 + 39}.' + ', '.join(params_list) + '.pt')]
+    return paths
+
+
+n = 14
+m = 0
+letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -40,11 +50,11 @@ net_config = {
 pre_process = None
 
 train_config = {
-    'num_epochs': 10,
+    'num_epochs': 2,
     'checkpoint_every_x_epochs': None,  # Not yet implemented
-    'batch_size': 64,  # IDEA: Start with small, increase without changing datasets. Seems to work great
+    'batch_size': 64,
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.0001,  # 0.00025,
+    'learning_rate': 0.0005,  # 0.00025,
     # 'weight_check_max_val': 1e8,
     # 'weight_check_max_iter': 40,
     'grad_clip': None,
@@ -57,13 +67,14 @@ train_config = {
 }
 
 flow_config = {  # Smaller flow, hopefully doesn't overfit
+    'scales': {'chirp_mass': 80, 'luminosity_distance': 2000, 'theta_jn': 2 * np.pi, 'ra': 2 * np.pi, 'dec': np.pi},
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
     'num_flow_steps': 5,
 
-    'base_transform': trans.mask_affine_autoreg,
+    'base_transform': trans.d_rq_coupling_and_affine,
     'base_transform_kwargs': {
-        'hidden_dim': 16,
+        'hidden_dim': 64,
         'num_transform_blocks': 5,
         'use_batch_norm': True
     },
@@ -95,9 +106,9 @@ vali_seeds = 999
  29 25 17  9 15 27 24 13 26 22 28 42  3  5  4 21]
 
 '''
-paths = [trainset_dir / '20_sets' / (f'{20} to {39}.'+', '.join(params_list)+'.pt'),
-         trainset_dir / '20_sets' / (f'{40} to {59}.'+', '.join(params_list)+'.pt')]
-dataset = TrainSet.load(paths, name='20 to 60')
+# paths = [trainset_dir / '20_sets' / (f'{20} to {39}.'+', '.join(params_list)+'.pt'),
+#          trainset_dir / '20_sets' / (f'{40} to {59}.'+', '.join(params_list)+'.pt')]
+# dataset = TrainSet.load(paths, name='20 to 60')
 
 # dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
 # dataset.change_parameter_name('d_L', to='luminosity_distance')
@@ -110,24 +121,27 @@ valiset.change_parameter_name('d_L', to='luminosity_distance')
 # dataset.save(trainset_dir / '20_sets' / (f'{seeds[0]} to {seeds[-1]}.'+', '.join(params_list)+'.pt'))
 valiset = convert_dataset(valiset, params_list)
 
-'''Flow creation'''
-# flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv2.{n}.0',
-#                     workdir=traindir, mode='net+flow', preprocess=pre_process)
-
-'''Training continuation of previous model'''
-flow = CBCEstimator.load_from_file(traindir / f'Spv2.{n}.0.pt')
-flow.rename(f'Spv2.{n}.1b')
+if m == 0:
+    '''Flow creation'''
+    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv1.{n}.{m}{letter}',
+                        workdir=traindir, mode='net+flow', preprocess=pre_process)
+else:
+    '''Training continuation of previous model'''
+    flow = CBCEstimator.load_from_file(traindir / f'Spv1.{n}.{m - 1}{letter}.pt')
+    flow.rename(f'Spv1.{n}.{m}{letter}')
 # print(flow.get_training_stage_seeds())
 
-# from pprint import pprint
-#
-# pprint(flow.metadata['train_history'])
+dataset_paths = [load_40set_paths(seed) for seed in [0, 40]]    # Add 80 once 100 to 120 works
+flow.train(dataset_paths, traindir, [train_config, ] * 2, valiset, cutoff=40000)
 
-flow.train(dataset, traindir, train_config, valiset)
+# flow.train(dataset, traindir, train_config, valiset)
 flow.save_to_file(traindir / f'{flow.name}.pt')
 
-
 ''' Loss log
+2.14.0
+
+
+
 2.10.0  Converges more slowly, but may prove better in the long run
 Average train: 19.8844, Delta: -1.01347 (-4.84964%)
 Average valid: 19.6006, Delta: -0.901136 (-4.39542%)

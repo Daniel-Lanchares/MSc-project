@@ -183,21 +183,6 @@ class SamplesDict(Dict):
                 )
         return string
 
-    # @classmethod
-    # def from_file(cls, filename, **kwargs):
-    #     """Initialize the SamplesDict class with the contents of a result file
-    #
-    #     Parameters
-    #     ----------
-    #     filename: str
-    #         path to the result file you wish to load.
-    #     **kwargs: dict
-    #         all kwargs are passed to the pesummary.io.read function
-    #     """
-    #     from pesummary.io import read
-    #
-    #     return read(filename, **kwargs).samples_dict
-
     @property
     def key_data(self):
         return {param: value.key_data for param, value in self.items()}
