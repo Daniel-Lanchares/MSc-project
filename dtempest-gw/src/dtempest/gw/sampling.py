@@ -1,8 +1,14 @@
 from functools import partialmethod
 from pathlib import Path
 
-from dtempest.core.sampling import SampleDict, SampleSet, MSEDataFrame, MSESeries
+import numpy as np
+
+from dtempest.core.sampling import SampleDict, SampleSet, MSEDataFrame, MSESeries, ComparisonSampleDict
 from .config import cbc_jargon
+
+
+# from ..core.config import no_jargon
+# from ..core.pesum_deps.samples_dict import SamplesDict
 
 
 class CBCMSESeries(MSESeries):
@@ -14,7 +20,8 @@ class CBCMSEDataFrame(MSEDataFrame):
 
 
 class CBCSampleDict(SampleDict):
-    __init__ = partialmethod(SampleDict.__init__, jargon=cbc_jargon, _series_class=CBCMSESeries)
+    __init__ = partialmethod(SampleDict.__init__,
+                             jargon=cbc_jargon, _series_class=CBCMSESeries, _dataframe_class=CBCMSEDataFrame)
 
     @classmethod
     def from_file(cls, filename: Path | str, **kwargs):
@@ -30,6 +37,14 @@ class CBCSampleDict(SampleDict):
         from pesummary.io import read
 
         return read(filename, **kwargs).samples_dict
+
+    from_samplesdict = partialmethod(SampleDict.from_samplesdict,
+                                     jargon=cbc_jargon, _series_class=CBCMSESeries, _dataframe_class=CBCMSEDataFrame)
+
+    def default_bounds(self, parameters=None, comparison=False):
+        if parameters is None:
+            parameters = self.parameters
+        return _default_bounds(self, parameters, comparison)
 
     @property
     def plotting_map(self):
@@ -356,3 +371,79 @@ class CBCSampleDict(SampleDict):
 class CBCSampleSet(SampleSet):
     __init__ = partialmethod(SampleSet.__init__,
                              _series_class=CBCMSESeries, _dataframe_class=CBCMSEDataFrame, jargon=cbc_jargon)
+
+
+class CBCComparisonSampleDict(ComparisonSampleDict):  # Subclassing two classes is problematic. Careful
+
+    def default_bounds(self, parameters=None, analysis: str = None, comparison=False):
+        from pesummary.gw.plots.plot import _return_bounds
+        from collections import OrderedDict
+
+        _samples = {label: self[label] for label in self.labels}
+        _parameters = parameters
+        if _parameters is not None:
+            parameters = [
+                param for param in _parameters if all(
+                    param in posterior for posterior in _samples.values()
+                )
+            ]
+            if not len(parameters):
+                raise ValueError(
+                    "None of the chosen parameters are in all of the posterior "
+                    "samples tables. Please specify analysis or choose other parameters to bound"
+                )
+
+        else:
+            _parameters = [list(_samples.keys()) for _samples in _samples.values()]
+            parameters = [
+                i for i in _parameters[0] if all(i in _params for _params in _parameters)
+            ]
+
+        if analysis is not None:
+            return _default_bounds(self[analysis], parameters, comparison)
+
+        else:  # Take minimum low and maximum high of all analysis
+            bounds = OrderedDict()
+            for param in parameters:
+                lows, highs = [], []
+                for label in self.labels:
+                    low, high = _return_bounds(param, self[label][param], comparison)
+                    lows.append(low), highs.append(high)
+                low = nan_check(lows, 'min')
+                high = nan_check(highs, 'max')
+
+                bounds[param] = {'xlow': low, 'xhigh': high}
+            # from pprint import pprint
+            # pprint(bounds)
+            return bounds
+
+
+def _default_bounds(samples, parameters, comparison=False):
+    from pesummary.gw.plots.plot import _return_bounds
+    from collections import OrderedDict
+    bounds = OrderedDict()
+    for param in parameters:
+        low, high = _return_bounds(param, samples[param], comparison)
+        bounds[param] = {'xlow': low, 'xhigh': high}
+    return bounds
+
+
+def nan_check(vector, f_type: str = 'max'):
+    """
+
+    Parameters
+    ----------
+    vector : list of values to filter
+    f_type : take minimum or maximum
+
+    Returns Max/min of list, or None if not available
+    -------
+
+    """
+    mapping = {'min': np.nanmin, 'max': np.nanmax}
+
+    if all(v is None for v in vector):
+        extreme = None
+    else:
+        extreme = mapping[f_type](np.array(vector, dtype=np.float64))
+    return extreme

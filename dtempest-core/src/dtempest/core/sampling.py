@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 from scipy import stats as st
 
-from .pesum_deps.samples_dict import SamplesDict
+from .pesum_deps.samples_dict import SamplesDict, MultiAnalysisSamplesDict
 
 from .config import no_jargon
 from .common_utils import PrintStyle, handle_multi_index_format, merge_headers
@@ -156,8 +156,8 @@ class MSEDataFrame:
             names_verbose = [r'\makecell{' + name + r"\\" + str(self.verbose[name]) + '}'
                              if name in self.verbose else name for name in temp_df.columns]
         else:
-            print(PrintStyle.red+'Warning: language {language} not understood. '
-                                 'Resorting to non verbose names'+PrintStyle.reset)
+            print(PrintStyle.red + 'Warning: language {language} not understood. '
+                                   'Resorting to non verbose names' + PrintStyle.reset)
             names_verbose = temp_df.colums
 
         temp_df.columns = pd.Index(names_verbose)
@@ -233,6 +233,13 @@ class MSEDataFrame:
         return type(self)(data=self._df.groupby(level='parameters', sort=sort).mean(),
                           name=self.name, sqrt=self.sqrt, relative=self.relative, verbose=self.verbose)
 
+    def pp_median(self, sort: bool = False):
+        '''
+        Per-parameter median
+        '''
+        return type(self)(data=self._df.groupby(level='parameters', sort=sort).median(),
+                          name=self.name, sqrt=self.sqrt, relative=self.relative, verbose=self.verbose)
+
 
 class SampleDict(SamplesDict):
 
@@ -291,7 +298,15 @@ class SampleDict(SamplesDict):
             return truths
 
     def from_file(self, filepath):
-        return super()
+        raise NotImplementedError
+
+    @classmethod
+    def from_samplesdict(cls, samplesdict: SamplesDict, name: str = None,
+                         _series_class=MSESeries, _dataframe_class=MSEDataFrame, jargon: dict = no_jargon):
+        sdict = cls(samplesdict.parameters, name, _series_class, _dataframe_class, jargon)
+        for param in sdict.parameters:
+            sdict[param] = samplesdict[param]
+        return sdict
 
     # def plot_1d_hists(self, param_array, fig=None, figsize=None, quantiles=(0.16, 0.84),
     #                   average=False, same=False, **kwargs):
@@ -546,7 +561,10 @@ class SampleDict(SamplesDict):
             )
         return self._dataframe_class(data=data, name=f'deviations from {self.name}', sqrt=True, relative=relative)
 
-    def plot(self, *args, type: str = 'marginalized_posterior', values: bool = True, **kwargs):
+    def plot(self, *args,
+             type: str = 'marginalized_posterior',
+             values: bool = True,
+             truth_fmt: str = '.2f', **kwargs):
         fig = super().plot(type=type, *args, **kwargs)
 
         if type == 'corner' and values:
@@ -559,13 +577,18 @@ class SampleDict(SamplesDict):
             # Give means and quantiles in bilby fashion.
             axes = fig.get_axes()
             medians = []
+            truths = kwargs.get('truths', None)
             #  Add the titles
             for i, par in enumerate(params):
                 median_data = self.get_one_dimensional_median_and_error_bar(
                     par, quantiles=kwargs.get('quantiles', None), **kwargs.get('title_kwargs', {}))
                 ax = axes[i + i * len(params)]
                 if ax.title.get_text() == '':
-                    ax.set_title(median_data.string, **kwargs.get('title_kwargs', {}))
+                    if truths is not None and truth_fmt is not None:
+                        truth = f'{truths[i]:{truth_fmt}}' + '\n'
+                    else:
+                        truth = ''
+                    ax.set_title(truth + median_data.string, **kwargs.get('title_kwargs', {}))
                 medians.append(median_data.median)
             medians = np.array(medians)
             if kwargs.get('medians', None) is not None:
@@ -711,6 +734,195 @@ class SampleSet(SampleDict):
     def __setitem__(self, key, value):
         """ Overrides the SampleDict __setitem__ """
         dict.__setitem__(self, key, value)
+
+
+def get_one_dimensional_median_and_error_bar(cls,
+                                             key,
+                                             fmt='.2f',
+                                             quantiles: tuple = None,
+                                             **extra_title_kwargs):
+    # Credit: https://git.ligo.org/lscsoft/bilby/-/blob/master/bilby/core/result.py
+    """ Calculate the median and error bar for a given key
+
+    Parameters
+    ==========
+    key: str
+        The parameter key for which to calculate the median and error bar
+    fmt: str, ('.2f')
+        A format string
+    quantiles: list, tuple
+        A length-2 tuple of the lower and upper-quantiles to calculate
+        the errors bars for.
+
+    Returns
+    =======
+    summary: namedtuple
+        An object with attributes, median, lower, upper and string
+
+    """
+    summary = namedtuple('summary', ['median', 'lower', 'upper', 'string'])
+
+    if quantiles is None:
+        quantiles = (0.16, 0.84)
+    if len(quantiles) != 2:
+        raise ValueError("quantiles must be of length 2")
+
+    quants_to_compute = np.array([quantiles[0], 0.5, quantiles[1]])
+    quants = np.percentile(cls[key], quants_to_compute * 100)
+    summary.median = quants[1]
+    summary.plus = quants[2] - summary.median
+    summary.minus = summary.median - quants[0]
+
+    fmt = "{{0:{0}}}".format(fmt).format
+    string_template = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
+    summary.string = string_template.format(
+        fmt(summary.median), fmt(summary.minus), fmt(summary.plus))
+    return summary
+
+
+class ComparisonSampleDict(MultiAnalysisSamplesDict):
+    @property
+    def unord_param_intersec(self):
+        inter = frozenset(self.parameters[self.labels[0]])
+        for params in self.parameters.values():
+            inter &= frozenset(params)
+        return list(inter)
+
+    def get_given_analysis(self, analysis: str | list[str] = 'all'):
+        """
+
+        Handles samples requests from other methods
+
+        Parameters
+        ----------
+        analysis : The requested samples
+
+        Returns The analysis that match the request
+        -------
+
+        """
+        if analysis == "all":
+            analysis = self.labels
+        elif analysis in self.labels:
+            analysis = [analysis, ]
+        elif isinstance(analysis, list):
+            for label in analysis:
+                if label not in self.labels:
+                    raise ValueError(
+                        "'{}' is not a stored analysis. The available analyses "
+                        "are: '{}'".format(label, ", ".join(self.labels))
+                    )
+        else:
+            raise ValueError(
+                "Please provide a list of analyses that you wish to plot"
+            )
+        return analysis
+
+    def get_given_parameters(self, parameters: list = None, analysis: str | list[str] = 'all'):
+        """
+
+        Returns parameters if available in all analysis in order
+
+        Parameters
+        ----------
+        parameters : The requested parameters
+        analysis : The requested samples
+
+        Returns All parameters requested that are contained in all the specified analysis
+        -------
+
+        """
+
+        analysis = self.get_given_analysis(analysis)
+
+        _samples = {label: self[label] for label in analysis}
+        _parameters = parameters
+        if _parameters is not None:  # TODO: make parameter intersection into a common function
+            params = [
+                param for param in _parameters if all(
+                    param in posterior for posterior in _samples.values()
+                )
+            ]
+            if not len(params):
+                raise ValueError(
+                    "None of the chosen parameters are in all of the posterior "
+                    "samples tables. Please choose other parameters to plot"
+                )
+
+        else:
+            _parameters = [list(_samples.keys()) for _samples in _samples.values()]
+            params = [
+                i for i in _parameters[0] if all(i in _params for _params in _parameters)
+            ]
+        return params
+
+    def get_median_data(self, parameters: list = None, analysis: str = 'all', as_dict: bool = False, **kwargs):
+
+        analysis = self.get_given_analysis(analysis)
+        parameters = self.get_given_parameters(parameters, analysis)
+        data = dict()
+
+        for n, label in enumerate(analysis):
+            data[label] = dict()
+            for i, par in enumerate(parameters):
+                ntuple = get_one_dimensional_median_and_error_bar(self[label],
+                                                                  par,
+                                                                  quantiles=kwargs.get('quantiles', None),
+                                                                  **kwargs.get('title_kwargs', {}))
+                if not as_dict:
+                    data[label][par] = ntuple
+                else:
+                    data[label][par] = dict(median=ntuple.median,
+                                            lower=ntuple.minus,
+                                            upper=ntuple.plus,
+                                            string=ntuple.string)
+
+        return data
+
+    def plot(self,
+             *args,
+             type: str = 'marginalized_posterior',
+             medians: list | str = None,
+             **kwargs):
+        fig = super().plot(type=type, *args, **kwargs)
+
+        if type == 'corner' and medians is not None:
+            import corner
+            from dtempest.core.pesum_deps.configuration import colorcycle
+
+            colors = kwargs.get('colors', None)
+
+            if colors is None:
+                colors = list(colorcycle)
+                while len(colors) < len(medians):
+                    colors += colors
+
+            medians = self.get_given_analysis(medians)
+            params = self.get_given_parameters(kwargs.get('parameters', []), medians)
+            # print(f'{params}, {self.parameters=}, {self.labels=}')
+            # Give means and quantiles in bilby fashion.
+            axes = fig.get_axes()
+            #  Add the titles
+            for n, label in enumerate(medians):
+                median_list = []
+                for i, par in enumerate(params):
+                    median_data = get_one_dimensional_median_and_error_bar(self[label],
+                                                                           par, quantiles=kwargs.get('quantiles', None),
+                                                                           **kwargs.get('title_kwargs', {}))
+                    ax = axes[i + i * len(params)]
+                    previous_title = ax.title.get_text()
+                    if previous_title == '':
+                        ax.set_title(median_data.string, **kwargs.get('title_kwargs', {}))
+                    else:
+                        ax.set_title(previous_title + '\n' + median_data.string, **kwargs.get('title_kwargs', {}))
+
+                    median_list.append(median_data.median)
+                median_list = np.array(median_list)
+
+                corner.overplot_lines(fig, median_list, color=colors[n])
+                corner.overplot_points(fig, median_list[None], color=colors[n],
+                                       marker=kwargs.get('median_marker', "s"))
+        return fig
 
 
 # Could be moved to a config object later
