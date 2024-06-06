@@ -1347,6 +1347,8 @@ class MCMCSamplesDict(_MultiDimensionalSamplesDict):
             `pesummary.core.file.mcmc.algorithms` for list of available
             algorithms
         """
+
+        # TODO (Not urgent)
         from pesummary.core.file import mcmc
 
         if algorithm not in mcmc.algorithms:
@@ -1369,7 +1371,7 @@ class MCMCSamplesDict(_MultiDimensionalSamplesDict):
         decimal: int
             number of decimal places to keep when rounding
         """
-        from pesummary.utils.utils import gelman_rubin as _gelman_rubin
+        from .utils import gelman_rubin as _gelman_rubin
 
         return _gelman_rubin(np.array(self.samples(parameter)), decimal=decimal)
 
@@ -1453,6 +1455,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         **kwargs: dict
             all kwargs are passed to the pesummary.io.read function
         """
+        # TODO
         from pesummary.io import read
 
         samples = {}
@@ -1874,7 +1877,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         decimal: int
             number of decimal places to keep when rounding
         """
-        from pesummary.utils.utils import jensen_shannon_divergence
+        from .utils import jensen_shannon_divergence
 
         return jensen_shannon_divergence(
             self.samples(parameter), decimal=decimal
@@ -1892,7 +1895,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         decimal: int
             number of decimal places to keep when rounding
         """
-        from pesummary.utils.utils import kolmogorov_smirnov_test
+        from .utils import kolmogorov_smirnov_test
 
         return kolmogorov_smirnov_test(
             self.samples(parameter), decimal=decimal

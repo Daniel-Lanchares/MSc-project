@@ -1,7 +1,7 @@
 # Licensed under an MIT style license -- see LICENSE.md
 
 import numpy as np
-from pesummary.utils.decorators import deprecation
+from .decorators import deprecation
 
 __author__ = ["Charlie Hoy <charlie.hoy@ligo.org>"]
 
@@ -158,7 +158,7 @@ class Array(np.ndarray):
         weights: np.ndarray, optional
             list of weights associated with each sample
         """
-        from pesummary.utils.credible_interval import credible_interval
+        from .credible_interval import credible_interval
         if weights is None:
             return np.median(array)
         return credible_interval(array, 50, weights=weights)
@@ -265,7 +265,7 @@ class Array(np.ndarray):
         "use pesummary.utils.credible_interval.credible_interval instead"
     )
     def percentile(array, weights=None, percentile=None):
-        from pesummary.utils.credible_interval import credible_interval
+        from .credible_interval import credible_interval
         return credible_interval(array, percentile, weights=weights)
 
     @deprecation(
@@ -284,7 +284,7 @@ class Array(np.ndarray):
             Percentile or sequence of percentiles to compute, which must be
             between 0 and 100 inclusive
         """
-        from pesummary.utils.credible_interval import credible_interval
+        from .credible_interval import credible_interval
         if percentile is not None:
             return credible_interval(self, percentile, weights=self.weights)
         return self.credible_interval(percentile=[5, 95])
@@ -297,7 +297,7 @@ class Array(np.ndarray):
         percentile: float, optional
             Percentile to compute. Must be between 0 and 100 inclusive. Default 90
         """
-        from pesummary.utils.credible_interval import two_sided_credible_interval
+        from .credible_interval import two_sided_credible_interval
         return two_sided_credible_interval(self, percentile, weights=self.weights)
 
     def __array_finalize__(self, obj):

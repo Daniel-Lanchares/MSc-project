@@ -1,6 +1,6 @@
 # Licensed under an MIT style license -- see LICENSE.md
 
-from pesummary.utils.decorators import try_latex_plot
+from .decorators import try_latex_plot
 from matplotlib.figure import Figure as MatplotlibFigure
 
 __author__ = ["Charlie Hoy <charlie.hoy@ligo.org>"]

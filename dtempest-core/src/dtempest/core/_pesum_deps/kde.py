@@ -6,7 +6,7 @@ from scipy import stats
 from seaborn.distributions import (
     _DistributionPlotter as SeabornDistributionPlotter, KDE as SeabornKDE,
 )
-from seaborn.utils import _normalize_kwargs, _check_argument
+from seaborn.utils import normalize_kwargs, _check_argument
 
 import pandas as pd
 

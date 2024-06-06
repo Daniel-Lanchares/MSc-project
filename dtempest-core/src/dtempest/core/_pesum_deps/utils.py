@@ -12,8 +12,8 @@ import numpy as np
 from scipy.integrate import cumtrapz
 from scipy.interpolate import interp1d
 from scipy import stats
-import h5py
-from .configuration import user
+# import h5py
+from .configuration import user, style_file
 
 __author__ = ["Charlie Hoy <charlie.hoy@ligo.org>"]
 
@@ -90,30 +90,30 @@ def check_condition(condition, error_message):
         raise Exception(error_message)
 
 
-def rename_group_or_dataset_in_hf5_file(base_file, group=None, dataset=None):
-    """Rename a group or dataset in an hdf5 file
-
-    Parameters
-    ----------
-    group: list, optional
-        a list containing the path to the group that you would like to change
-        as the first argument and the new name of the group as the second
-        argument
-    dataset: list, optional
-        a list containing the name of the dataset that you would like to change
-        as the first argument and the new name of the dataset as the second
-        argument
-    """
-    condition = not os.path.isfile(base_file)
-    check_condition(condition, "The file %s does not exist" % (base_file))
-    f = h5py.File(base_file, "a")
-    if group:
-        f[group[1]] = f[group[0]]
-        del f[group[0]]
-    elif dataset:
-        f[dataset[1]] = f[dataset[0]]
-        del f[dataset[0]]
-    f.close()
+# def rename_group_or_dataset_in_hf5_file(base_file, group=None, dataset=None):
+#     """Rename a group or dataset in an hdf5 file
+#
+#     Parameters
+#     ----------
+#     group: list, optional
+#         a list containing the path to the group that you would like to change
+#         as the first argument and the new name of the group as the second
+#         argument
+#     dataset: list, optional
+#         a list containing the name of the dataset that you would like to change
+#         as the first argument and the new name of the dataset as the second
+#         argument
+#     """
+#     condition = not os.path.isfile(base_file)
+#     check_condition(condition, "The file %s does not exist" % (base_file))
+#     f = h5py.File(base_file, "a")
+#     if group:
+#         f[group[1]] = f[group[0]]
+#         del f[group[0]]
+#     elif dataset:
+#         f[dataset[1]] = f[dataset[0]]
+#         del f[dataset[0]]
+#     f.close()
 
 
 def make_dir(path):
@@ -588,47 +588,47 @@ def unzip(zip_file, outdir=None, overwrite=False):
     return out_file
 
 
-def iterator(
-    iterable, desc=None, logger=None, tqdm=False, total=None, file=None,
-    bar_format=None
-):
-    """Return either a tqdm iterator, if tqdm installed, or a simple range
-
-    Parameters
-    ----------
-    iterable: func
-        iterable that you wish to iterate over
-    desc: str, optional
-        description for the tqdm bar
-    tqdm: Bool, optional
-        If True, a tqdm object is used. Otherwise simply returns the iterator.
-    logger_output: Bool, optional
-        If True, the tqdm progress bar interacts with logger
-    total: float, optional
-        total length of iterable
-    logger_name: str, optional
-        name of the logger you wish to use
-    file: str, optional
-        path to file that you wish to write the output to
-    """
-    from pesummary.utils.tqdm import tqdm
-    if tqdm:
-        try:
-            FORMAT, DESC = None, None
-            if bar_format is None:
-                FORMAT = (
-                    '{desc} | {percentage:3.0f}% | {n_fmt}/{total_fmt} | {elapsed}'
-                )
-            if desc is not None:
-                DESC = desc
-            return tqdm(
-                iterable, total=total, logger=logger, desc=DESC, file=file,
-                bar_format=FORMAT,
-            )
-        except ImportError:
-            return iterable
-    else:
-        return iterable
+# def iterator(
+#     iterable, desc=None, logger=None, tqdm=False, total=None, file=None,
+#     bar_format=None
+# ):
+#     """Return either a tqdm iterator, if tqdm installed, or a simple range
+#
+#     Parameters
+#     ----------
+#     iterable: func
+#         iterable that you wish to iterate over
+#     desc: str, optional
+#         description for the tqdm bar
+#     tqdm: Bool, optional
+#         If True, a tqdm object is used. Otherwise simply returns the iterator.
+#     logger_output: Bool, optional
+#         If True, the tqdm progress bar interacts with logger
+#     total: float, optional
+#         total length of iterable
+#     logger_name: str, optional
+#         name of the logger you wish to use
+#     file: str, optional
+#         path to file that you wish to write the output to
+#     """
+#     from pesummary.utils.tqdm import tqdm
+#     if tqdm:
+#         try:
+#             FORMAT, DESC = None, None
+#             if bar_format is None:
+#                 FORMAT = (
+#                     '{desc} | {percentage:3.0f}% | {n_fmt}/{total_fmt} | {elapsed}'
+#                 )
+#             if desc is not None:
+#                 DESC = desc
+#             return tqdm(
+#                 iterable, total=total, logger=logger, desc=DESC, file=file,
+#                 bar_format=FORMAT,
+#             )
+#         except ImportError:
+#             return iterable
+#     else:
+#         return iterable
 
 
 def _check_latex_install(force_tex=False):
@@ -752,12 +752,12 @@ def gelman_rubin(samples, decimal=5):
     decimal: int
         number of decimal places to keep when rounding
 
-    Examples
-    --------
-    >>> from pesummary.utils.utils import gelman_rubin
-    >>> samples = [[1, 1.5, 1.2, 1.4, 1.6, 1.2], [1.5, 1.3, 1.4, 1.7]]
-    >>> gelman_rubin(samples, decimal=5)
-    1.2972
+    # Examples
+    # --------
+    # >>> from pesummary.utils.utils import gelman_rubin
+    # >>> samples = [[1, 1.5, 1.2, 1.4, 1.6, 1.2], [1.5, 1.3, 1.4, 1.7]]
+    # >>> gelman_rubin(samples, decimal=5)
+    # 1.2972
     """
     means = [np.mean(data) for data in samples]
     variances = [np.var(data) for data in samples]
@@ -895,9 +895,9 @@ def get_matplotlib_style_file():
     """
     style_file = os.path.join(STYLE_CACHE, "matplotlib_rcparams.sty")
     if not os.path.isfile(style_file):
-        from pesummary import conf
+        # from pesummary import conf
 
-        return conf.style_file
+        return style_file
     return os.path.join(style_file)
 
 
@@ -1070,10 +1070,10 @@ def history_dictionary(program=None, creator=user, command_line=None):
     command_line: str, optional
         The command line which was run to generate the PESummary data product
     """
-    from astropy.time import Time
+    # from astropy.time import Time
 
     _dict = {
-        "gps_creation_time": Time.now().gps,
+        # "gps_creation_time": Time.now().gps,
         "creator": creator,
     }
     if command_line is not None:
