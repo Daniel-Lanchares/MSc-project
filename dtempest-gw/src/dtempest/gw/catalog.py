@@ -13,6 +13,12 @@ from dtempest.gw.conversion import cbc_jargon
 from dtempest.gw.generation.parallel import process_strain
 from dtempest.gw.generation.parallel import default_config as default_gen_config
 
+full_names = {
+    'GW190412': 'GW190412_053044',
+    'GW190425': 'GW190425_081805',
+    'GW190521': 'GW190521_030229',
+    'GW190814': 'GW190814_211039'
+}
 
 class Merger(pycbc_Merger, dict):
     def __init__(self, name: str, source: str | dict = 'gwtc-1', image_window: tuple = None):
@@ -86,7 +92,8 @@ class Merger(pycbc_Merger, dict):
         channels = {}
         for ifo in self.detectors:
             q_window = (self.time + self.image_window[0], self.time + self.image_window[1])
-            channels[ifo] = process_strain(self.strain(ifo), ifo, q_window)
+            ts = self.strain(ifo)
+            channels[ifo] = process_strain(ts._return(np.nan_to_num(ts)), ifo, q_window)
         return channels
 
     def make_image(self):
@@ -123,6 +130,7 @@ class Catalog(pycbc_Catalog):
         self.mergers = {name: Merger(name,
                                      source=source) for name in self.data.keys()}
         self.names = self.mergers.keys()
+        self.common_names = [self.mergers[m].common_name for m in self.mergers]
 
     def __delitem__(self, key):
         try:
@@ -146,14 +154,14 @@ class Catalog(pycbc_Catalog):
 #     merger.imshow()
 #     plt.title(name)
 #     plt.show()
-# TODO: Add add_parameter / remove_parameter routines to both merger and catalog
+# Sort-of-DONE: Add add_parameter / remove_parameter routines to both merger and catalog (does it with PESummary)
 
 
 '''
 From here down an exploration of sample download to compare actual distributions an obtain more parameters 
 (much later down the line)
 '''
-# TODO: build a table of medians + 90% credible intervals of he GWTC-3 catalog by downloading all 90+ files
+# DONE: build a table of medians + 90% credible intervals of he GWTC-3 catalog by downloading all 90+ files
 # "IGWN-GWTC3p0-v1-FULLNAME_PEDataRelease_mixed_cosmo.h5"
 # "IGWN-GWTC2p1-v2-FULLNAME_PEDataRelease_mixed_cosmo.h5" # Up to 190930
 
