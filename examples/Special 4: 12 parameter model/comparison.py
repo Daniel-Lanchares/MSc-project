@@ -22,17 +22,14 @@ letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
-train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
+train_dir = files_dir / 'Examples' / 'Special 4. 12 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
 catalog_1 = files_dir / 'GWTC-1 Samples'
 catalog_2 = files_dir / 'GWTC-2.1 Samples'
 catalog_3 = files_dir / 'GWTC-3 Samples'
 
-flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv4.{n}.{m}{letter}.pt')
 flow0.eval()
-
-flow2 = CBCEstimator.load_from_file(train_dir / f'training_test_{n+2}' / f'Spv5.{n+2}.{m}{letter}.pt')
-flow2.eval()
 
 
 def dingo_mass_plot():
@@ -175,12 +172,9 @@ def basic_corner():
     # image = testset['images'][event]
     # label = testset['labels'][event]
     image = merger.make_array()
-    sdict = flow0.sample_dict(10000, context=image)  # 20000 takes all my RAM for a few seconds...
-    sdict2 = flow2.sample_dict(10000, context=image)
+    sdict = flow0.sample_dict(20000, context=image)  # 20000 takes all my RAM for a few seconds...
 
-    multi = CBCComparisonSampleDict({cat.upper(): gwtc,
-                                     f"Estimator {flow0.name}": sdict,
-                                     f"Estimator {flow2.name}": sdict2})
+    multi = CBCComparisonSampleDict({cat.upper(): gwtc, f"Estimator {flow0.name}": sdict})
 
     del sdict, gwtc
 
@@ -196,7 +190,7 @@ def basic_corner():
         'bins': 20,
         'title_quantiles': [0.16, 0.5, 0.84],
         'smooth': 1.4,
-        'label_kwargs': {'fontsize': 15},
+        'label_kwargs': {'fontsize': 20},
         # 'labelpad': 0.2,
         'title_kwargs': {'fontsize': 15},
 
@@ -207,19 +201,19 @@ def basic_corner():
 
     fig = multi.plot(type='corner', parameters=select_params, **kwargs)
     del multi
-    plt.tight_layout(h_pad=-5, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
+    plt.tight_layout(h_pad=-3, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
     # fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
     #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
     fig = plot_image(image, fig=fig,
                      title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
-                     title_kwargs={'fontsize': 20})
+                     title_kwargs={'fontsize': 25})
     fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
     from dtempest.core.common_utils import redraw_legend
-    redraw_legend(fig, fontsize=20, loc='upper center', handlelength=2, linewidth=5)
+    redraw_legend(fig, fontsize=30, loc='upper center', handlelength=2, linewidth=5)
 
-    fig.savefig(f'{event}_{flow0.name}_{flow2.name}_comparison.png', bbox_inches='tight')
-    # plt.show()
+    # fig.savefig(f'{event}_{flow0.name}_comparison.png', bbox_inches='tight')
+    plt.show()
 
 
 # dingo_mass_plot()

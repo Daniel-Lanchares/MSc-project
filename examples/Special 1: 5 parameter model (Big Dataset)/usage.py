@@ -11,19 +11,25 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
+n = 4
+m = 2
+letter = '.B3'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 1. 5 parameter model (Big Dataset)'
-traindir0 = train_dir / 'training_test_5'
+traindir0 = train_dir / f'training_test_{n}'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'Spv1.5.0.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv1.{n}.{m}{letter}.pt')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
+
+# for model in [flow0]:
+#     model.pprint_metadata(except_keys=['jargon', ('net_config', 'base_net')])
 
 seed = 999
 event = f'{seed}.00001'
@@ -31,25 +37,44 @@ event = f'{seed}.00001'
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
-sset0 = flow0.sample_set(3000, trainset[:][:], name=f'flow {flow0.name}')
+sset0 = flow0.sample_set(3000, trainset[:][:1], name=f'flow {flow0.name}')
 
 full = sset0.full_test()
 full_rel = sset0.full_test(relative=True)
 
 
-#
-# sdict = sset0[event]
-# fig = sdict.plot(type='corner', truths=trainset['labels'][event])
+from scipy import stats
+# from pesummary.utils.bounded_1d_kde import bounded_1d_kde
+kwargs = {
+    'medians': 'all',  # f"Estimator {flow0.name}",
+    'hist_bin_factor': 1,
+    'bins': 20,
+    'title_quantiles': [0.16, 0.5, 0.84],
+    'smooth': 1.4,
+    'label_kwargs': {'fontsize': 15},
+    # 'labelpad': 0.2,
+    'title_kwargs': {'fontsize': 15},
+
+
+    'kde': stats.gaussian_kde,
+    'hist_kwargs': {'density': True},
+    # 'kde': bounded_1d_kde,
+    # 'kde_kwargs': sdict.default_bounds(),
+}
 
 image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
 
-fig = sdict.plot(type='corner', truths=trainset['labels'][event])  # TODO: check how to plot only certain parameters
-
+fig = plt.figure(figsize=(14, 10))
+select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
+fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
+                 fig=fig, **kwargs)
 fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+# fig.savefig(f'corner_{flow0.name}_{event}.png', bbox_inches='tight')
+plt.show()
 
 
 # For discarding problematic samples
@@ -67,11 +92,11 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 
 # print(both.xs('chirp_mass', level='parameters'))
-print(full.pp_mean().to_markdown(tablefmt='github'))
+# print(full.pp_mean().to_markdown(tablefmt='github'))
 # Idea: The model is incredible at estimating the average of a parameter over the entire dataset
 # Idea: I suppose due to being trained with datasets with identical mass distribution (uniform 5 to 100 for each m)
 # Idea: Might be interesting to make a dataset with different distributions
-print()
+# print()
 # cross = full.xs('chirp_mass', level='parameters')
 # print(cross.to_markdown(tablefmt='github'))
 # cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
@@ -81,9 +106,9 @@ print()
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples = flow0.sample_and_log_prob(3000, trainset['images'].iloc[0])
-print(-torch.mean(samples[1]))
-plt.show()
+# samples = flow0.sample_and_log_prob(3000, trainset['images'].iloc[0])
+# print(-torch.mean(samples[1]))
+# plt.show()
 
 
 ''' 

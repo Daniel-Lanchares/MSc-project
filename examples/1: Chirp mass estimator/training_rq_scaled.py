@@ -2,7 +2,6 @@ from pathlib import Path
 import numpy as np
 # import pandas as pd
 # from torchvision.models.resnet import Bottleneck
-from torchvision import transforms
 
 from dtempest.gw import CBCEstimator
 
@@ -11,32 +10,19 @@ from dtempest.core.common_utils import load_rawsets, seeds2names
 from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
-n = 2  # Training test number
-m = 0  # Model version within training test
+n = 9  # Training test number
+m = 1  # Model version within training test
 letter = ''
 vali_seeds = 999
 
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
-train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
+train_dir = files_dir / 'Examples' / '1. Chirp mass estimator'
 traindir = train_dir / f'training_test_{n}'
 
 params_list = [
     'chirp_mass',
-    'mass_ratio',
-    'a_1',
-    'a_2',
-    'tilt_1',
-    'tilt_2',
-    'phi_jl',
-    'phi_12',
-    'luminosity_distance',
-    'theta_jn',
-    'ra',
-    'dec',
-    'phase',
-    'psi'
 ]
 
 net_config = {
@@ -46,15 +32,14 @@ net_config = {
     'output_features': 128
 }
 
-pre_process = transforms.Compose([
-        transforms.Normalize((0, 0, 0), (1, 1, 1))])
-n_epochs = 12
+pre_process = None
+n_epochs = 5
 train_config = {
     'num_epochs': n_epochs,
     'checkpoint_every_x_epochs': None,  # Not yet implemented
     'batch_size': 64,
     'optim_type': 'Adam',  # 'SGD'
-    'learning_rate': 0.001,  # 0.001,
+    'learning_rate': 0.0005,  # 0.001,
     'weight_check_max_val': 1e2,
     'weight_check_tenfold': True,
     'weight_check_max_iter': 30,  # No weight check because it doesn't work on rq transforms
@@ -67,21 +52,10 @@ train_config = {
 }
 
 flow_config = {  # Smaller flow, hopefully doesn't overfit
-    'scales': {'chirp_mass': 80,
-               'tilt_1': np.pi,
-               'tilt_2': np.pi,
-               'phi_jl': 2*np.pi,
-               'phi_12': 2*np.pi,
-               'luminosity_distance': 2000,
-               'theta_jn': 2 * np.pi,
-               'ra': 2 * np.pi,
-               'dec': np.pi,
-               'phase': 2*np.pi,
-               'psi': np.pi},
-
+    'scales': {'chirp_mass': 100},
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
-    'num_flow_steps': 8,
+    'num_flow_steps': 5,
 
     'base_transform': trans.d_rq_coupling_and_affine,
     'base_transform_kwargs': {
@@ -113,18 +87,18 @@ valiset = convert_dataset(valiset, params_list)
 
 if m == 0:
     '''Flow creation'''
-    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv5.{n}.{m}{letter}',
+    flow = CBCEstimator(params_list, flow_config, net_config, name=f'Spv1.{n}.{m}{letter}',
                         workdir=traindir, mode='net+flow', preprocess=pre_process)
 else:
     '''Training continuation of previous model'''
-    flow = CBCEstimator.load_from_file(traindir / f'Spv5.{n}.{m - 1}{letter}.pt')
-    flow.rename(f'Spv5.{n}.{m}{letter}')
+    flow = CBCEstimator.load_from_file(traindir / f'Spv1.{n}.{m - 1}{letter}.pt')
+    flow.rename(f'Spv1.{n}.{m}{letter}')
 
 # print(flow.model)
 
 shuffle_rng = np.random.default_rng(seed=m)  # For reproducibility of 'random' shuffling of dataset
 
-seeds = range(60)
+seeds = range(10)
 dataset = load_rawsets(rawdat_dir, seeds2names(seeds))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 dataset = convert_dataset(dataset, params_list)
@@ -156,15 +130,10 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 
 
 '''Loss Log
-5.0.0   ~3 hours, similar times to 10p model (10k less data, 2 extra epochs)
-Average train: 8.26±0.441, Delta: -0.219 (-2.58%)
-Average valid: 9.63±0.694, Delta: -0.0539 (-0.557%)
+1.9.0  Really weird loss curve. Seemed to overfit then came back
+Average train: -0.496±0.0905, Delta: -0.146 (41.8%)
+Average valid: -0.475±0.0976, Delta: -0.0461 (10.8%)
 
-5.1.0   4.48 hours for 20 epochs @60k. Overfitted a bit though, from epoch 13 at ~-4.2 loss
-Average train: -8.39±0.57, Delta: -0.124 (1.5%)
-Average valid: -1.88±1.6, Delta: -0.0971 (5.45%)
+train_time: 0.7200999932156669 hours
 
-5.2.0   3.5 hours for 12 epochs @60k. Normalizing images paid off. On the verge of overfitting perhaps.
-Average train: -6.03±0.433, Delta: -0.195 (3.35%)
-Average valid: -4.83±0.736, Delta: -0.0893 (1.88%)
 '''

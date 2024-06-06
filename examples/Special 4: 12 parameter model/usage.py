@@ -79,6 +79,8 @@ fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
+plt.show()
+
 
 # Problems with skymap as always. Cannot translate histogram to projection.
 # import numpy as np
@@ -118,23 +120,23 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 
 # print(both.xs('chirp_mass', level='parameters'))
-print(full.pp_mean().to_markdown(tablefmt='github'))
+# print(full.pp_mean().to_markdown(tablefmt='github'))
 # Idea: The model is incredible at estimating the average of a parameter over the entire dataset
 # Idea: I suppose due to being trained with datasets with identical mass distribution (uniform 5 to 100 for each m)
 # Idea: Might be interesting to make a dataset with different distributions
-print()
+# print()
 # cross = full.xs('chirp_mass', level='parameters')
 # print(cross.to_markdown(tablefmt='github'))
-# cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
+# cross = full.loc[(slice(':'), ('chirp_mass',)), :]
 # print(cross.to_markdown(tablefmt='github'))
 
 # for asymmetric precision
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples = flow0.sample_and_log_prob(3000, trainset['images'][event])
-print(-torch.mean(samples[1]))
-plt.show()
+# samples = flow0.sample_and_log_prob(3000, trainset['images'][event])
+# print(-torch.mean(samples[1]))
+# plt.show()
 
 '''
 Dataset 999

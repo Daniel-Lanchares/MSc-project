@@ -22,17 +22,17 @@ letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
-train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
+train_dir = files_dir / 'Examples' / 'Special 3. 10 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
 catalog_1 = files_dir / 'GWTC-1 Samples'
 catalog_2 = files_dir / 'GWTC-2.1 Samples'
 catalog_3 = files_dir / 'GWTC-3 Samples'
 
-flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv3.{n}.{m}{letter}.pt')
+flow0.rename(f'Spv3.{n}.{m}{letter}')
 flow0.eval()
-
-flow2 = CBCEstimator.load_from_file(train_dir / f'training_test_{n+2}' / f'Spv5.{n+2}.{m}{letter}.pt')
-flow2.eval()
+flow1 = CBCEstimator.load_from_file(traindir0 / f'Spv3.{n}.{m+1}{letter}.pt')
+flow1.eval()
 
 
 def dingo_mass_plot():
@@ -175,12 +175,12 @@ def basic_corner():
     # image = testset['images'][event]
     # label = testset['labels'][event]
     image = merger.make_array()
-    sdict = flow0.sample_dict(10000, context=image)  # 20000 takes all my RAM for a few seconds...
-    sdict2 = flow2.sample_dict(10000, context=image)
+    sdict = flow0.sample_dict(20000, context=image)  # 20000 takes all my RAM for a few seconds...
+    sdict1 = flow1.sample_dict(20000, context=image)
 
     multi = CBCComparisonSampleDict({cat.upper(): gwtc,
-                                     f"Estimator {flow0.name}": sdict,
-                                     f"Estimator {flow2.name}": sdict2})
+                                     f"{flow0.name}": sdict,
+                                     f"{flow1.name} (Overfitted)": sdict1})
 
     del sdict, gwtc
 
@@ -196,7 +196,7 @@ def basic_corner():
         'bins': 20,
         'title_quantiles': [0.16, 0.5, 0.84],
         'smooth': 1.4,
-        'label_kwargs': {'fontsize': 15},
+        'label_kwargs': {'fontsize': 20},
         # 'labelpad': 0.2,
         'title_kwargs': {'fontsize': 15},
 
@@ -212,13 +212,13 @@ def basic_corner():
     #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
     fig = plot_image(image, fig=fig,
                      title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
-                     title_kwargs={'fontsize': 20})
-    fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+                     title_kwargs={'fontsize': 15})
+    fig.get_axes()[-1].set_position(pos=[0.65, 0.65, 0.32, 0.32])
 
     from dtempest.core.common_utils import redraw_legend
-    redraw_legend(fig, fontsize=20, loc='upper center', handlelength=2, linewidth=5)
+    redraw_legend(fig, fontsize=15, loc='upper center', handlelength=2, linewidth=5)
 
-    fig.savefig(f'{event}_{flow0.name}_{flow2.name}_comparison.png', bbox_inches='tight')
+    fig.savefig(f'{event}_{flow0.name}_{flow1.name}_comparison.png', bbox_inches='tight')
     # plt.show()
 
 

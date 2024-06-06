@@ -1,16 +1,14 @@
 from pathlib import Path
 import matplotlib.pyplot as plt
 
-import torch
-
 from dtempest.gw import CBCEstimator
-from dtempest.gw.sampling import CBCSampleDict
-from dtempest.core.common_utils import load_rawsets, seeds2names
+from dtempest.gw.sampling import CBCSampleDict, CBCComparisonSampleDict
 
-from dtempest.gw.conversion import convert_dataset, plot_image
+from dtempest.gw.conversion import plot_image
 from dtempest.gw.catalog import Catalog
 
-from pesummary.utils.samples_dict import MultiAnalysisSamplesDict
+from scipy import stats
+# from pesummary.utils.bounded_1d_kde import bounded_1d_kde
 from pesummary.gw.conversions import convert
 
 '''
@@ -23,60 +21,110 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
-traindir0 = train_dir / f'training_test_{n}'
-catalog_dir = files_dir / 'GWTC-1 Samples'
+traindir0 = train_dir / f'training_test_12'
+traindir1 = train_dir / f'training_test_13'  # {n}
+catalog_1 = files_dir / 'GWTC-1 Samples'
+catalog_3 = files_dir / 'GWTC-3 Samples'
 
-flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.{n}.{m}{letter}.pt')
-flow0.rename(f'Spv2.{n}.{m}{letter}')
+# flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
+# flow0.eval()
+
+flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.12.0c.pt')
 flow0.eval()
+flow1 = CBCEstimator.load_from_file(traindir1 / f'Spv2.13.0b.pt')
+flow1.eval()
 
-catalog = Catalog('gwtc-3')
-# testset = convert_dataset(catalog.mergers.values(), flow0.param_list)
-# sset0 = flow0.sample_set(3000, testset, name=f'flow {flow0.name}')
+# from pprint import pprint
+# from copy import deepcopy
 
-event = 'GW200224_222234'
-# event = 'GW200220_061928'  # Way too far away. Out of range of our implicit prior
-# event = 'GW170823'
+# meta0 = deepcopy(flow0.metadata)
+# meta1 = deepcopy(flow1.metadata)
+#
+# del meta0['jargon'], meta1['jargon']
+
+# print(flow0.name)
+# pprint(meta0)
+# print()
+# print(flow1.name)
+# pprint(meta1)
+
+cat = 'gwtc-1'
 # event = 'GW150914'
+event = 'GW170823'
+
+# cat = 'gwtc-3'
+# event = 'GW200129_065458'
+# event = 'GW200224_222234'
+# event = 'GW200220_061928'  # Not as good, as expected. Way outside learning prior
 # gwtc = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
-# gwtc = convert(CBCSampleDict.from_file(catalog_dir / f'{event}_GWTC-1.hdf5'))
 
-gwtc = convert(CBCSampleDict.from_file(files_dir / f'GWTC-3 Samples/{event}_cosmo.h5')['C01:Mixed'])
-print(gwtc.parameters)
+if cat == 'gwtc-1':
+    gwtc = convert(CBCSampleDict.from_file(catalog_1 / f'{event}_GWTC-1.hdf5'))
+elif cat == 'gwtc-3':
+    gwtc = convert(CBCSampleDict.from_file(catalog_3 / f'{event}_cosmo.h5')['C01:Mixed'])
+else:
+    gwtc = None
 
-# full = sset0.full_test()
-# full_rel = sset0.full_test(relative=True)
+catalog = Catalog(cat)
+
+# seed = 999
+# event = f'{seed}.00002'
+#
+# dataset = load_rawsets(rawdat_dir, seeds2names(seed))
+# dataset.change_parameter_name('d_L', to='luminosity_distance')
+# testset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
 
 # image = testset['images'][event]
 # label = testset['labels'][event]
 image = catalog[event].make_array()
-sdict = flow0.sample_dict(10000, context=image)
+sdict0 = flow0.sample_dict(10000, context=image)
+sdict1 = flow1.sample_dict(10000, context=image)
 
-multi = MultiAnalysisSamplesDict({"GWTC-1": gwtc, f"Estimator {flow0.name}": sdict})
-
-smooth = 1.4
+multi = CBCComparisonSampleDict({"GWTC-1": gwtc,
+                                 # "pycbc": convert(CBCSampleDict.from_file((
+                                 #     "https://github.com/gwastro/2-ogc/raw/master/posterior_samples/"
+                                 #     "H1L1V1-EXTRACT_POSTERIOR_150914_09H_50M_45UTC-0-1.hdf"),
+                                 #     path_to_samples="samples")),
+                                 f"Estimator {flow0.name}": sdict0,
+                                 # f"Estimator {flow1.name}": sdict1,
+                                 })
+# multi = CBCComparisonSampleDict({f"Estimator {flow1.name}": sdict1, f"Estimator {flow0.name}": sdict0})
 
 # fig = plt.figure(figsize=(12, 10))
 select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
 
-
+# from pesummary.utils.bounded_1d_kde import bounded_1d_kde
 kwargs = {
-    'module': 'gw',
-    # 'medians': True,
-    'show_titles': True,
+    'medians': 'all',  # f"Estimator {flow0.name}",
+    'hist_bin_factor': 2,
+    'bins': 20,
     'title_quantiles': [0.16, 0.5, 0.84],
-    'smooth': smooth,
+    'smooth': 1.4,
+    'label_kwargs': {'fontsize': 20},
+    # 'labelpad': 0.2,
+    'title_kwargs': {'fontsize': 15},
+
+    'kde': stats.gaussian_kde
+    # 'kde': bounded_1d_kde,
+    # 'kde_kwargs': sdict0.default_bounds(),
 }
-fig = multi.plot(type='corner', parameters=select_params, **kwargs)
-plt.tight_layout(h_pad=-1, w_pad=-0.3)
+fig: plt.Figure = multi.plot(type='corner', parameters=select_params, **kwargs)
+plt.tight_layout(h_pad=-3, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines, -5 for 3 lines?
 # fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
 #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
 fig = plot_image(image, fig=fig,
-                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
+                 title_kwargs={'fontsize': 20})
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
+from dtempest.core.common_utils import change_legend_loc
 
+change_legend_loc(fig, 'upper center')
+
+# plt.savefig(f'{event}_{flow0.name}_vs_{flow1.name}.png', bbox_inches='tight')
+# plt.savefig(f'{event}_{flow0.name}.png', bbox_inches='tight')
+plt.show()
 # Problems with skymap as always. Cannot translate histogram to projection.
 # import numpy as np
 # corner_colors = ['#0072C1', '#b30909', '#8809b3', '#b37a09']
@@ -131,7 +179,7 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 # print(precision[1].mean(axis=0))
 # samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
 # print(-torch.mean(logprob))
-plt.show()
+
 
 ''' 
 Dataset 999

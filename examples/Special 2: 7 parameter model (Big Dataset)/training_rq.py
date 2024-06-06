@@ -132,7 +132,7 @@ flow.save_to_file(traindir / f'{flow.name}.pt')
 
 
 '''Loss Log
-2.13.0b FIX WAVEFORM_EJEMPLO.PNG shouldn't show up on repository. 20 epochs was to much. Trying 10
+2.13.0b 20 epochs was to much. Trying 10
 Average train: -5.65±0.407, Delta: -0.197 (3.62%)
 Average valid: -4.79±0.768, Delta: -0.0584 (1.23%)
 

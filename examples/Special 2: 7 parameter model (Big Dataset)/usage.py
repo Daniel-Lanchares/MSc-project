@@ -29,46 +29,52 @@ flow0.rename(f'Spv2.{n}.{m}{letter}')
 flow0.eval()
 # flow1.eval()
 
+for model in [flow0]:
+    model.pprint_metadata(except_keys=['jargon', ('net_config', 'base_net')])
+
 seed = 999
 event = f'{seed}.00001'
 
 dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
-
-# flow0.scales = flow0._get_scales({'chirp_mass': 100})
-# print(flow0.scales)
-# # print(flow0.sample_and_log_prob(10, trainset['images'][event]))
-# print(trainset.loc[:, 'labels'])
-# print(flow0.rescale_trainset(trainset).loc[:, 'labels'])
-#
-# raise RuntimeError
-
-# flow0.scales = flow0._get_scales({'chirp_mass': 100, 'luminosity_distance': 1000})
-
-sset0 = flow0.sample_set(3000, trainset[:][:5], name=f'flow {flow0.name}')
+sset0 = flow0.sample_set(3000, trainset[:][:1], name=f'flow {flow0.name}')
 
 full = sset0.full_test()
 full_rel = sset0.full_test(relative=True)
-
-
-#
-# sdict = sset0[event]
-# fig = sdict.plot(type='corner', truths=trainset['labels'][event])
 
 image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
 
-smooth = 1.4
+from scipy import stats
+# from pesummary.utils.bounded_1d_kde import bounded_1d_kde
+kwargs = {
+    'medians': 'all',  # f"Estimator {flow0.name}",
+    'hist_bin_factor': 1,
+    'bins': 20,
+    'title_quantiles': [0.16, 0.5, 0.84],
+    'smooth': 1.4,
+    'label_kwargs': {'fontsize': 15},
+    # 'labelpad': 0.2,
+    'title_kwargs': {'fontsize': 15},
 
-fig = plt.figure(figsize=(12, 10))
+
+    'kde': stats.gaussian_kde,
+    'hist_kwargs': {'density': True},
+    # 'kde': bounded_1d_kde,
+    # 'kde_kwargs': sdict.default_bounds(),
+}
+
+fig = plt.figure(figsize=(14, 10))
 select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
 fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
-                 smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
+                 fig=fig, **kwargs)
 fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+# fig.savefig(f'corner_{flow0.name}_{event}.png', bbox_inches='tight')
+plt.show()
 
 
 # Problems with skymap as always. Cannot translate histogram to projection.
@@ -110,14 +116,14 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
 # print(both.xs('chirp_mass', level='parameters'))
 # print(full.pp_mean().to_markdown(tablefmt='github'))
-print(full.pp_mean().to_latex(float_format="%.3f"))
-print()
-print(full_rel.pp_mean().to_latex(float_format="%.3f"))
+# print(full.pp_mean().to_latex(float_format="%.3f"))
+# print()
+# print(full_rel.pp_mean().to_latex(float_format="%.3f"))
 # print(full_rel.pp_mean().to_markdown(floatfmt=".3f"))
 # Idea: The model is incredible at estimating the average of a parameter over the entire dataset
 # Idea: I suppose due to being trained with datasets with identical mass distribution (uniform 5 to 100 for each m)
 # Idea: Might be interesting to make a dataset with different distributions
-print()
+# print()
 # cross = full.xs('chirp_mass', level='parameters')
 # print(cross.to_markdown(tablefmt='github'))
 # cross = full.loc[(slice(':'), ('chirp_mass',)), :]  # TODO: conversion_function.
@@ -127,9 +133,9 @@ print()
 # print(precision[0].mean(axis=0))
 # print()
 # print(precision[1].mean(axis=0))
-samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
-print(-torch.mean(logprob))
-plt.show()
+# samples, logprob = flow0.sample_and_log_prob(3000, trainset['images'][event])
+# print(-torch.mean(logprob))
+# plt.show()
 
 '''Overfitted models on Dataset 32
 | parameters<br>(flow Spv2.11.0c)   |       median |        truth |   accuracy<br>(MSE) |   precision_left<br>(1.0$\sigma$) |   precision_right<br>(1.0$\sigma$) | units          |
