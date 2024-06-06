@@ -1,3 +1,4 @@
+import traceback
 from pathlib import Path
 from functools import partial
 
@@ -116,7 +117,7 @@ def convert_dataset(*args, method: str = 'default', **kwargs):
         try:
             return convert_dataset_fast(*args, **kwargs)
         except Exception as exception:  # generic exception for now
-            print(exception)
+            traceback.print_exc()
             print('Something went wrong in conversion process: Switching to reliable method')
             return convert_dataset_reliable(*args, **kwargs)
     elif method == 'fast':
