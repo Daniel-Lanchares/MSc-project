@@ -4,7 +4,7 @@ def default_title_maker(data):
     return 'RGB image'
 
 
-no_jargon = {
+_no_jargon = {
     'image': 'image',
     'R': 'R',
     'G': 'G',
@@ -15,3 +15,13 @@ no_jargon = {
 
     'default_title_maker': default_title_maker
 }
+
+
+class Jargon(dict):  # TODO: add key enforcement.
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not self:
+            super().__init__(_no_jargon)
+
+
+no_jargon = Jargon(_no_jargon)
