@@ -59,6 +59,65 @@ def colour_cycler(n: int = 10, cmap: str = 'jet'):
     return cycler('color', [plt.get_cmap(cmap)(1. * i / n) for i in range(1, n)])
 
 
+def change_legend_loc(artist, loc: str | int, pos: int = 0):
+    """
+
+    Parameters
+    ----------
+    artist : holder of the legend
+    loc : new position
+    pos : if there al multiple legends, specify position on list
+
+    Unlike redraw_legend, it is non-destructive
+    -------
+
+    """
+    if isinstance(artist, plt.Axes):
+        l = artist.get_legend()
+    elif isinstance(artist, plt.Figure):
+        l = artist.legends[pos]  # A figure can have multiple legends
+    else:
+        raise NotImplementedError(f"Change of legend location is not implemented for objects of type '{type(artist)}'")
+
+    if isinstance(loc, str):
+        from matplotlib.offsetbox import AnchoredOffsetbox
+        try:
+            l._loc = AnchoredOffsetbox.codes[loc]
+        except KeyError as e:
+            raise KeyError(f"Location '{loc}' not valid").with_traceback(e.__traceback__)
+    elif isinstance(loc, int):
+        l._loc = loc
+    else:
+        raise ValueError(f"Paramemer loc can only be of class 'int' or 'str', not '{type(loc)}'")
+
+
+def redraw_legend(artist, *args, pos: int = 0, **kwargs):
+    from matplotlib.legend import Legend
+    from matplotlib.font_manager import FontProperties
+    from matplotlib.legend import legend_handler
+    if isinstance(artist, plt.Axes):
+        l: Legend = artist.get_legend()
+    elif isinstance(artist, plt.Figure):
+        l: Legend = artist.legends[pos]  # A figure can have multiple legends
+    else:
+        raise NotImplementedError(f"Change of legend location is not implemented for objects of type '{type(artist)}'")
+    # l.prop = FontProperties(size=fontsize)
+    # l._fontsize = l.prop.get_size_in_points()
+    # for text in l.texts:
+    #     text.set_fontsize(fontsize)
+    # texts = [text.get_text() for text in l.texts]
+    handles = l.legend_handles
+
+    linewidth = kwargs.pop('linewidth', None)
+    # Do a more robust implementation for all handler properties if needed
+    if linewidth is not None:
+        for handle in handles:
+            handle.set_linewidth(linewidth)
+
+    l.remove()
+    artist.legend(handles=handles, *args, **kwargs)
+
+
 def identity(x):
     return x
 
@@ -193,7 +252,7 @@ def load_losses(directory: str | Path,
                        if int(subdir.split('_')[-1]) in stages and subdir.split('_')[0] != '#'}
 
     if model is not None:
-        chosen_subs = {stage: subdir for stage, subdir in chosen_subs.items() if int(subdir.split('_')[-3]) == model}
+        chosen_subs = {stage: subdir for stage, subdir in chosen_subs.items() if subdir.split('_')[-3] == model}
 
     # Sort the stages to avoid issues down the line
     chosen_subs = {stage: chosen_subs[stage] for stage in sorted(chosen_subs.keys())}
@@ -298,6 +357,6 @@ def merge_headers(string_table: str):
     """
     rows = string_table.split(r' \\')
     problem_name = rows.pop(1).split('&')[0]
-    rows[0] = rows[0].replace(r'\toprule', r'\toprule'+problem_name)
+    rows[0] = rows[0].replace(r'\toprule', r'\toprule' + problem_name)
 
     return r' \\'.join(rows)

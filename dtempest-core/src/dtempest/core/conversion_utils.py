@@ -220,7 +220,7 @@ def get_param_units(parameter, jargon: dict = None):
     return r'${}$'.format(unit)
 
 
-def plot_hist(dataset, params_list, fig=None, figsize=None,
+def plot_hist(dataset, params_list, fig=None, figsize=None, title: str = 'default',
               plot_layout=(1, 1, 1), jargon: dict = None,
               *hist_args, **hist_kwargs, ):
     """
@@ -266,7 +266,10 @@ def plot_hist(dataset, params_list, fig=None, figsize=None,
     for name in params_list:
         names += get_param_alias(name, jargon) + ', '
     names = names[:-2]
-    ax.set_title(f'{names} histogram')
+    if title in ['default', None]:
+        ax.set_title(f'{names} histogram')
+    else:
+        ax.set_title(title)
     return fig
 
 
@@ -274,6 +277,7 @@ def plot_hists(dataset,
                param_array: np.ndarray,
                fig=None,
                figsize=None,
+               title: str = 'default',
                jargon: dict = None,
                *hist_args, **hist_kwargs):
     """
@@ -309,14 +313,14 @@ def plot_hists(dataset,
     layout = param_array.shape
     flat_array = param_array.flatten()
     for i in range(len(flat_array)):
-        fig = plot_hist(dataset, [flat_array[i], ], fig=fig, figsize=figsize, jargon=jargon,
+        fig = plot_hist(dataset, [flat_array[i], ], fig=fig, figsize=figsize, title=title, jargon=jargon,
                         plot_layout=(*layout, i + 1), *hist_args, **hist_kwargs)
     plt.tight_layout()
     return fig
 
 
 def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = None,
-               plot_layout=(1, 1, 1), *imshow_args, **imshow_kwargs):
+               plot_layout=(1, 1, 1), title_kwargs=None, *imshow_args, **imshow_kwargs):
     """
         Plots a histogram of a given parameter list on a single subplot
 
@@ -345,6 +349,8 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
             updated figure with the image now plotted.
 
         """
+    if title_kwargs is None:
+        title_kwargs = {}
     if jargon is None:
         jargon = no_jargon
 
@@ -357,11 +363,11 @@ def plot_image(data, fig=None, figsize=None, title_maker=None, jargon: dict = No
     ax.imshow(image, *imshow_args, **imshow_kwargs)
     if title_maker is None:
         if isinstance(data, dict):
-            ax.set_title(jargon['default_title_maker'](data))
+            ax.set_title(jargon['default_title_maker'](data), **title_kwargs)
         else:
             pass
     else:
-        ax.set_title(title_maker(data))
+        ax.set_title(title_maker(data), **title_kwargs)
     return fig
 
 

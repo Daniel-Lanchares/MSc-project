@@ -206,6 +206,22 @@ class Estimator:
         samples[:] = torch.mul(samples[:], self.scales)
         return samples, logprobs
 
+    def pprint_metadata(self, except_keys=None):
+        from pprint import pprint
+        from copy import deepcopy
+
+        if except_keys is None:
+            except_keys = ['jargon', ]
+
+        data = deepcopy(self.metadata)
+        for key in except_keys:
+            if isinstance(key, str):
+                data[key] = 'Not shown'
+            elif isinstance(key, tuple):
+                assert len(key) == 2, "Not showing keys is only implemented up to second level"
+                data[key[0]][key[1]] = 'Not shown'
+        pprint(data)
+
     def get_training_stage_seeds(self, stage: int = -1) -> list[int] | None:
         if len(self.metadata['train_history']) == 0:
             return None
@@ -290,8 +306,6 @@ class Estimator:
                save_loss: bool = True,
                make_plot: bool = True) \
             -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
-
-        # TODO: default train_config attributes
 
         # Load trainset and rescale (Inner model works with rescaled parameters only)
         trainset = check_trainset_format(trainset)
