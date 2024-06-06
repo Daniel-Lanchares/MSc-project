@@ -12,7 +12,6 @@ Source for full resnet architecture: https://towardsdatascience.com/residual-net
 Source for feature extractor: https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 '''
 
-a = models.ResNet
 
 def create_feature_extractor(n_features, base_net=models.resnet18(weights=models.ResNet18_Weights.DEFAULT)):
     for param in base_net.parameters():
@@ -61,7 +60,7 @@ def create_full_net(input_channels: int = None, output_length: int = None,
             print(PrintStyle.red + 'WARNING: You need to provide "output_features" to build a flow from a PyTorch '
                                    f'ResNet\nSetting argument to default ({output_features})' + PrintStyle.reset)
         net = models.ResNet(block=block, layers=depths, *args, **kwargs)
-        net.fc = nn.Linear(in_features=512*block.expansion, out_features=output_features)
+        net.fc = nn.Linear(in_features=512 * block.expansion, out_features=output_features)
         return net
 
     if (input_channels is None) or (output_length is None):
@@ -129,7 +128,7 @@ class ResnetDecoder(nn.Module):
 
     def __init__(self, in_features, n_classes):
         super().__init__()
-        self.avg = nn.AdaptiveAvgPool2d((1, 1))  # TODO substitute with blurpool
+        self.avg = nn.AdaptiveAvgPool2d((1, 1))  # Maybe-DO: substitute with blurpool
         self.decoder = nn.Linear(in_features, n_classes)
 
     def forward(self, x):

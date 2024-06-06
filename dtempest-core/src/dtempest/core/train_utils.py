@@ -23,8 +23,8 @@ loss_dict = {'MSE': nn.MSELoss, 'CE': nn.CrossEntropyLoss}
 class TrainSet:
     """
     Wrapper class for pandas DataFrame. Allows me to name it.
-    When applying any funtion that returns a copy remember to recreate
-    the object (Array-like objects are not easily extended or subclassed)
+    When applying any funtion that returns knows what to return
+     (Array-like objects are not easily extended or subclassed)
     """
 
     def __init__(self, name: str = None, *args, **kwargs):
@@ -112,10 +112,12 @@ class TrainSet:
             print(f'Loaded TrainSet {_name}')
         return TrainSet(data=df, name=name)
 
-    def save(self, path, lightweight: bool = False):
+    def save(self, path: str | Path, lightweight: bool = False):
         # Trainset loads and saves its internal DataFrame, not the TrainSet itself
         # lightweight saves the dataframe contents only. loses the name but is much more compact
         # If it isn't given a pickle file it will name it after itself
+        if type(path) is str:
+            path = Path(path)
         if path.parts[-1][-3:] != '.pt':
             path = path / f'{self.name}.pt'
         if lightweight:
@@ -168,9 +170,10 @@ class FeederDataset(Dataset):
         if isinstance(trainset, str | Path):
             trainset = torch.load(trainset)
 
-        # print([type(tens)for tens in trainset['labels']])
-
-        labels = torch.cat([torch.reshape(tens, (1, len(tens))) for tens in trainset['labels']])
+        if trainset['labels'].iloc[0].dim() != 0:
+            labels = torch.cat([torch.reshape(tens, (1, len(tens))) for tens in trainset['labels']])
+        else:   # Deals with 1 parameter models
+            labels = torch.cat([torch.reshape(tens, (1, 1)) for tens in trainset['labels']])
 
         self.x, self.y = (torch.cat(list(trainset.values[:, 0])), labels)
 
