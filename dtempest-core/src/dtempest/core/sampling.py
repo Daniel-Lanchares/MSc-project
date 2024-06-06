@@ -6,7 +6,7 @@ import torch
 from tqdm import tqdm
 from scipy import stats as st
 
-from .pesum_deps.samples_dict import SamplesDict, MultiAnalysisSamplesDict
+from ._pesum_deps.samples_dict import SamplesDict, MultiAnalysisSamplesDict
 
 from .config import no_jargon
 from .common_utils import PrintStyle, handle_multi_index_format, merge_headers
@@ -888,7 +888,7 @@ class ComparisonSampleDict(MultiAnalysisSamplesDict):
 
         if type == 'corner' and medians is not None:
             import corner
-            from dtempest.core.pesum_deps.configuration import colorcycle
+            from dtempest.core._pesum_deps.configuration import colorcycle
 
             colors = kwargs.get('colors', None)
 

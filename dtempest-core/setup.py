@@ -14,9 +14,9 @@ def get_requirements(kind=None):
 
 setup(
     name='dtempest-core',
-    packages=find_namespace_packages(where='src/', include=['dtempest.core']),
+    packages=find_namespace_packages(where='src/', include=['dtempest.core', 'dtempest.core._pesum_deps']),
     package_dir={'': 'src'},
-    version='0.1.0',
+    version='0.1.0.dev0',
     description='Implementation of an NPE approach to gravitational wave parameter estimation',
     author='Daniel Lanchares',
     license='MIT',

@@ -8,7 +8,7 @@ from .config import cbc_jargon
 
 
 # from ..core.config import no_jargon
-# from ..core.pesum_deps.samples_dict import SamplesDict
+# from ..core._pesum_deps.samples_dict import SamplesDict
 
 
 class CBCMSESeries(MSESeries):

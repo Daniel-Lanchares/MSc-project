@@ -1,4 +1,4 @@
-dtempest-core
+dtempest-core>=0.1.0
 
 gwpy>=3.0.5
 pycbc>=2.2.1
