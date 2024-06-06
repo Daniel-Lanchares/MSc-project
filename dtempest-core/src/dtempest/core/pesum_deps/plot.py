@@ -4,13 +4,13 @@ from .utils import (
     logger, number_of_columns_for_legend, _check_latex_install, gelman_rubin,
 )
 from .kde import kdeplot
+from .corner import corner
 from .figure import figure, ExistingFigure
 from .configuration import (
     color, colorcycle, injection_color, prior_color, corner_colors, corner_kwargs,
 )
 
 import matplotlib.lines as mlines
-import corner
 import copy
 from itertools import cycle
 
@@ -838,7 +838,7 @@ def _make_corner_plot(
     default_kwargs["range"] = [1.0] * len(included_parameters)
     default_kwargs["labels"] = [latex_labels[i] for i in included_parameters]
 
-    _figure = ExistingFigure(corner.corner(xs.T, **default_kwargs))
+    _figure = ExistingFigure(corner(xs.T, included_parameters, **default_kwargs))
     # grab the axes of the subplots
     axes = _figure.get_axes()
     axes_of_interest = axes[:2]
@@ -882,6 +882,7 @@ def _make_comparison_corner_plot(
     **kwargs: dict
         all kwargs are passed to `corner.corner`
     """
+    fig = kwargs.pop('fig', None)   # Now adds preexisting figure support, matching SampleDict
     parameters = corner_parameters
     if corner_parameters is None:
         _parameters = [list(_samples.keys()) for _samples in samples.values()]
@@ -908,7 +909,7 @@ def _make_comparison_corner_plot(
         if num == 0:
             fig, _, _ = _make_corner_plot(
                 _samples, latex_labels, corner_parameters=corner_parameters,
-                parameters=parameters, color=colors[num], **kwargs
+                parameters=parameters, color=colors[num], fig=fig, **kwargs
             )
         else:
             fig, _, _ = _make_corner_plot(

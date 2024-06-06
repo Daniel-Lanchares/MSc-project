@@ -1374,9 +1374,6 @@ class MCMCSamplesDict(_MultiDimensionalSamplesDict):
         return _gelman_rubin(np.array(self.samples(parameter)), decimal=decimal)
 
 
-# TODO: implement later everything down from here (Mainly this first one)
-'''
-
 class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
     """Class to samples from multiple analyses
 
@@ -1500,7 +1497,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
             "corner": self._corner,
             "triangle": self._triangle,
             "reverse_triangle": self._reverse_triangle,
-            "violin": self._violin,
+            # "violin": self._violin,
             "2d_kde": self._2d_kde
         }
 
@@ -1583,10 +1580,8 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
             all additional kwargs are passed to the
             `_1d_comparison_histogram_plot` function
         """
-        module = importlib.import_module(
-            "pesummary.{}.plots.plot".format(module)
-        )
-        return getattr(module, "_1d_comparison_histogram_plot")(
+        from .plot import _1d_comparison_histogram_plot
+        return _1d_comparison_histogram_plot(
             parameter, [self[label][parameter] for label in labels],
             colors, self.latex_labels[parameter], labels, **kwargs
         )
@@ -1631,13 +1626,11 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         **kwargs: dict
             all additional kwargs are passed to the `triangle_plot` function
         """
-        _module = importlib.import_module(
-            "pesummary.{}.plots.publication".format(module)
-        )
+        from .publication import triangle_plot
         samples = self._base_triangle(parameters, labels=labels)
         if module == "gw":
             kwargs["parameters"] = parameters
-        return getattr(_module, "triangle_plot")(
+        return triangle_plot(
             [_samples[parameters[0]] for _samples in samples],
             [_samples[parameters[1]] for _samples in samples],
             xlabel=self.latex_labels[parameters[0]],
@@ -1657,13 +1650,11 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         **kwargs: dict
             all additional kwargs are passed to the `triangle_plot` function
         """
-        _module = importlib.import_module(
-            "pesummary.{}.plots.publication".format(module)
-        )
+        from .publication import reverse_triangle_plot
         samples = self._base_triangle(parameters, labels=labels)
         if module == "gw":
             kwargs["parameters"] = parameters
-        return getattr(_module, "reverse_triangle_plot")(
+        return reverse_triangle_plot(
             [_samples[parameters[0]] for _samples in samples],
             [_samples[parameters[1]] for _samples in samples],
             xlabel=self.latex_labels[parameters[0]],
@@ -1757,9 +1748,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
             all additional kwargs are passed to the `_make_comparison_corner_plot`
             function
         """
-        module = importlib.import_module(
-            "pesummary.{}.plots.plot".format(module)
-        )
+        from .plot import _make_comparison_corner_plot
         _samples = {label: self[label] for label in labels}
         _parameters = None
         if parameters is not None:
@@ -1773,7 +1762,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
                     "None of the chosen parameters are in all of the posterior "
                     "samples tables. Please choose other parameters to plot"
                 )
-        return getattr(module, "_make_comparison_corner_plot")(
+        return _make_comparison_corner_plot(
             _samples, self.latex_labels, corner_parameters=_parameters, **kwargs
         )
 
@@ -1797,9 +1786,7 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
             all additional kwargs are passed to the
             `comparison_twod_contour_plot` function
         """
-        _module = importlib.import_module(
-            "pesummary.{}.plots.publication".format(module)
-        )
+        from .publication import twod_contour_plot
         samples = self._base_triangle(parameters, labels=labels)
         if plot_density is not None:
             if isinstance(plot_density, str):
@@ -1812,17 +1799,17 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
                         "Unable to plot the density for '{}'. Please choose "
                         "from: {}".format(plot_density, ", ".join(labels))
                     )
-        if module == "gw":
-            return getattr(_module, "twod_contour_plots")(
-                parameters, [
-                    [self[label][param] for param in parameters] for label in
-                    labels
-                ], labels, {
-                    parameters[0]: self.latex_labels[parameters[0]],
-                    parameters[1]: self.latex_labels[parameters[1]]
-                }, plot_density=plot_density, **kwargs
-            )
-        return getattr(_module, "comparison_twod_contour_plot")(
+        # if module == "gw":
+        #     return getattr(_module, "twod_contour_plots")(
+        #         parameters, [
+        #             [self[label][param] for param in parameters] for label in
+        #             labels
+        #         ], labels, {
+        #             parameters[0]: self.latex_labels[parameters[0]],
+        #             parameters[1]: self.latex_labels[parameters[1]]
+        #         }, plot_density=plot_density, **kwargs
+        #     )
+        return twod_contour_plot(
             [_samples[parameters[0]] for _samples in samples],
             [_samples[parameters[1]] for _samples in samples],
             xlabel=self.latex_labels[parameters[0]],
@@ -1911,4 +1898,3 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
             self.samples(parameter), decimal=decimal
         )
 
-'''
