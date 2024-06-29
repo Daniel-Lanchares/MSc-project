@@ -55,7 +55,7 @@ def make_array(data: dict, jargon: dict = None):
     Returns
     -------
 
-    """  # TODO: Unfinished
+    """  # TODO: study n-channel cases
     if jargon is None:
         jargon = no_jargon
 
@@ -69,6 +69,39 @@ def make_array(data: dict, jargon: dict = None):
 # Introduce more redefinition functions if needed
 
 # Load Raw_dataset.pt
+
+def data_convert(data: dict, params_list, param_pool, jargon):
+    params_dict = data['parameters']
+    image = data[jargon['image']]
+    channel_list = []
+    for val in ('R', 'G', 'B'):  # Sadly, 3-channel images are hard-coded into Pytorch ResNet architectures.
+        try:
+            channel_list.append(image[jargon[val]])
+        except KeyError:
+            channel_list.append(np.zeros_like(channel_list[-1]))
+    # image_arr = np.array((image[jargon['R']],  # Different shape from make_image
+    #                       image[jargon['G']],
+    #                       image[jargon['B']]), dtype=np.float32)  # Memory savings. 16 doesn't work with conv2d
+    image_arr = np.array(channel_list,
+                         dtype=np.float32)
+
+    # new_params_dict = {}
+    # labels = []  # same info as new_params_dict but in an ordered container
+    # for param in params_list:
+    #     if param in params_dict:
+    #         new_params_dict[param] = params_dict[param]
+    #     else:  # if not among the base params compute parameter from them
+    #         new_params_dict[param] = calc_parameter(param, param_pool, params_dict)
+    #     labels.append(new_params_dict[param])
+    labels = [params_dict[param]
+              if param in params_dict else calc_parameter(param, param_pool, params_dict)
+              for param in params_list]
+
+    # image_list.append(image_arr)
+    # label_list.append(np.array(labels))
+    # name_list.append(data['id'])
+    return data['id'], image_arr, np.array(labels, dtype=np.float32)  # Memory savings
+
 
 def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
                     params_list: list | np.ndarray | torch.Tensor,
@@ -109,25 +142,40 @@ def convert_dataset(dataset: str | Path | list | np.ndarray | torch.Tensor,
 
     image_list, label_list, name_list = [], [], []
 
-    for data in dataset:
-        params_dict = data['parameters']
-        image = data[jargon['image']]
-        image_arr = np.array((image[jargon['R']],  # Different shape from make_image
-                              image[jargon['G']],
-                              image[jargon['B']]))
+    from multiprocessing import Pool
+    from functools import partial
+    from tqdm import tqdm
 
-        new_params_dict = {}
-        labels = []  # same info as new_params_dict but in an ordered container
-        for param in params_list:
-            if param in params_dict:
-                new_params_dict[param] = params_dict[param]
-            else:  # if not among the base params compute parameter from them
-                new_params_dict[param] = calc_parameter(param, param_pool, params_dict)
-            labels.append(new_params_dict[param])
+    convert_func = partial(data_convert, params_list=params_list, param_pool=param_pool, jargon=jargon)
+    row_dicts = [dict(id=index, **dict(row)) for index, row in dataset.iterrows()]
 
-        image_list.append(image_arr)
-        label_list.append(np.array(labels))
-        name_list.append(data['id'])
+    with Pool() as pool:  # TODO: configure
+        with tqdm(desc='Dataset Conversion', total=len(dataset)) as p_bar:
+            for (dat_name, image, label) in pool.imap(convert_func, row_dicts):
+                p_bar.update(1)
+                name_list.append(dat_name)
+                image_list.append(image)
+                label_list.append(label)
+
+    # for data in dataset:
+    #     params_dict = data['parameters']
+    #     image = data[jargon['image']]
+    #     image_arr = np.array((image[jargon['R']],  # Different shape from make_image
+    #                           image[jargon['G']],
+    #                           image[jargon['B']]))
+    #
+    #     new_params_dict = {}
+    #     labels = []  # same info as new_params_dict but in an ordered container
+    #     for param in params_list:
+    #         if param in params_dict:
+    #             new_params_dict[param] = params_dict[param]
+    #         else:  # if not among the base params compute parameter from them
+    #             new_params_dict[param] = calc_parameter(param, param_pool, params_dict)
+    #         labels.append(new_params_dict[param])
+    #
+    #     image_list.append(image_arr)
+    #     label_list.append(np.array(labels))
+    #     name_list.append(data['id'])
 
     converted_dataset = TrainSet(data={'images': image_list, 'labels': label_list}, index=name_list, name=name)
     if outpath is not None:
@@ -158,8 +206,8 @@ def extract_parameters(dataset, params_list, jargon: dict = None):
 
     label_list = []
 
-    for inj in dataset:
-        params_dict = inj['parameters']
+    for index, inj in dataset.iterrows():  # TODO: multiprocessing
+        params_dict = inj[jargon['parameters']]
 
         new_params_dict = {}
         labels = []  # same info as new_params_dict but in an ordered container

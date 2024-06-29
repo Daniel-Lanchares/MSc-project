@@ -276,16 +276,20 @@ class Estimator:
         elif isinstance(trainset, torch.Tensor):
             return trainset  # Has been preprocessed already
 
-        for i in trainset.index:
-            trainset.loc[i, 'images'] = self._preprocess(torch.tensor(trainset['images'][i]))
-            if len(trainset['images'][i].shape) == 3:
-                trainset.loc[i, 'images'] = trainset['images'][i].expand(1, *trainset['images'][i].shape)
-            trainset.loc[i, 'labels'] = torch.tensor(trainset['labels'][i])
+        with tqdm(desc='Data Preprocessing', total=len(trainset)) as p_bar:
+            # TODO: auto turn off for small datasets, maybe use apply
+            for i in trainset.index:
+                trainset.loc[i, 'images'] = self._preprocess(torch.tensor(trainset['images'][i]))
+                if len(trainset['images'][i].shape) == 3:
+                    trainset.loc[i, 'images'] = trainset['images'][i].expand(1, *trainset['images'][i].shape)
+                trainset.loc[i, 'labels'] = torch.tensor(trainset['labels'][i])
+                p_bar.update(1)
         return trainset
 
     def rescale_trainset(self, trainset: TrainSet):
-        for event in trainset.index:
-            trainset.loc[event, 'labels'] = np.divide(trainset.loc[event, 'labels'], self.scales.numpy())
+        # for event in trainset.index:
+        #     trainset.loc[event, 'labels'] = np.divide(trainset.loc[event, 'labels'], self.scales.numpy())
+        trainset.loc[:, 'labels'] = trainset.loc[:, 'labels'].apply(lambda x: np.divide(x, self.scales.numpy()))
         return trainset
 
     def _append_training_stage(self, train_config):
@@ -322,11 +326,12 @@ class Estimator:
             trainset = self.preprocess(trainset)
 
         # FeederDataset is a train-only oriented object meant to work with Pytorch's DataLoader
-        trainset = DataLoader(FeederDataset(trainset), batch_size=train_config['batch_size'])
+        trainset = FeederDataset(trainset)
+        trainset = DataLoader(trainset, batch_size=train_config['batch_size'])  # TODO: explore arguments
 
         if validation is not None:
-            validation = self.preprocess(check_format(validation))
-            validation = self.rescale_trainset(validation)
+            validation = self.rescale_trainset(check_trainset_format(validation))
+            validation = self.preprocess(validation)
             validation = DataLoader(FeederDataset(validation), batch_size=train_config['batch_size'])
 
         # When training for the first time, check if weights give a reasonable first guess and if not reset them
@@ -475,7 +480,7 @@ class Estimator:
                 # print(f'data shape: {loss_data[0].shape}, validation shape: {loss_data[2].shape}')
                 full_epochs[epoch, i, :, :] = loss_data[0]  # Maybe list(...) of .flatten() if problematic
                 full_losses[epoch, i, :, :] = loss_data[1]
-                if validation:
+                if validation is not None:
                     full_vali_epochs[epoch, i, :, :] = loss_data[2]
                     full_vali_losses[epoch, i, :, :] = loss_data[3]
 

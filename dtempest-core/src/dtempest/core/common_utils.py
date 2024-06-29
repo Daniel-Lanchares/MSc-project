@@ -73,28 +73,28 @@ def change_legend_loc(artist, loc: str | int, pos: int = 0):
 
     """
     if isinstance(artist, plt.Axes):
-        l = artist.get_legend()
+        legend = artist.get_legend()
     elif isinstance(artist, plt.Figure):
-        l = artist.legends[pos]  # A figure can have multiple legends
+        legend = artist.legends[pos]  # A figure can have multiple legends
     else:
         raise NotImplementedError(f"Change of legend location is not implemented for objects of type '{type(artist)}'")
 
     if isinstance(loc, str):
         from matplotlib.offsetbox import AnchoredOffsetbox
         try:
-            l._loc = AnchoredOffsetbox.codes[loc]
+            legend._loc = AnchoredOffsetbox.codes[loc]
         except KeyError as e:
             raise KeyError(f"Location '{loc}' not valid").with_traceback(e.__traceback__)
     elif isinstance(loc, int):
-        l._loc = loc
+        legend._loc = loc
     else:
         raise ValueError(f"Paramemer loc can only be of class 'int' or 'str', not '{type(loc)}'")
 
 
 def redraw_legend(artist, *args, pos: int = 0, **kwargs):
     from matplotlib.legend import Legend
-    from matplotlib.font_manager import FontProperties
-    from matplotlib.legend import legend_handler
+    # from matplotlib.font_manager import FontProperties
+    # from matplotlib.legend import legend_handler
     if isinstance(artist, plt.Axes):
         l: Legend = artist.get_legend()
     elif isinstance(artist, plt.Figure):
@@ -161,23 +161,51 @@ models_dict = {
 }
 
 
-class RawSet:  # TODO
+def rawset_setup(data, obj):
+    if 'id' in data:
+        obj[data['id']] = data
+    else:
+        obj[len(obj)] = data  # Untested
+
+
+class RawSet:
     """
     Iterable of OrderedDicts containing fully described events (injections in GW)
     Could be a subclass of list...
     """
 
-    def __init__(self, rawdata, name: str = None, *args, **kwargs):
-        self._df = pd.Series(*args, **kwargs)
+    def __init__(self, rawdata, name: str = None, metadata: list[dict] = None, **fdict_kwargs):
+        # self._df = pd.Series(*args, **kwargs)
         if name is None:
             name = type(self).__name__
         self.name = name
+        self.metadata = metadata
 
-        for data in rawdata:
-            if 'id' in data:
-                self[data['id']] = data
-            else:
-                self[len(self._df)] = data  # Untested
+        if isinstance(rawdata, pd.DataFrame):
+            self._df = rawdata
+        else:
+            # from multiprocessing import Pool, Manager
+            # from functools import partial
+            # from tqdm import tqdm
+            #
+            # shared_dict = Manager().dict()
+            # setup_func = partial(rawset_setup, obj=shared_dict)
+            #
+            # with Pool(**pool_kwargs) as pool:
+            #     with tqdm(desc='Rawset Creation', total=len(rawdata)) as p_bar:
+            #         for _ in pool.imap(setup_func, rawdata):
+            #             p_bar.update(1)
+
+            shared_dict = {data['id']: data for data in rawdata}
+
+            self._df = pd.DataFrame.from_dict(data=shared_dict, orient='index', **fdict_kwargs).drop('id', axis=1)
+            # print(self._df)
+
+        # for data in rawdata:
+        #     if 'id' in data:
+        #         self[data['id']] = data
+        #     else:
+        #         self[len(self._df)] = data  # Untested
 
     def __getattr__(self, attr):
         if attr in self.__dict__:
@@ -187,7 +215,9 @@ class RawSet:  # TODO
     def __getitem__(self, item):
         # if isinstance(self._df[item], pd.Series):  # Need to study whether I will actually use this
         #     return type(self)(rawdata=self._df[item], name=self.name)
-        return self._df.iloc[item]  # Changed to avoid warnings, might break something (self._df[item])
+        if isinstance(self._df[item], pd.DataFrame):
+            return type(self)(rawdata=self._df[item], name=self.name)
+        return self._df[item]  # Changed to avoid warnings, might break something (self._df[item])
 
     def __setitem__(self, item, data):
         self._df[item] = data
@@ -196,16 +226,22 @@ class RawSet:  # TODO
         return self._df.__repr__()
 
     def change_parameter_name(self, old_key, to):  # to: New key
-        for data in self:
-            # data['parameters']['luminosity_distance'] = data['parameters'].pop('d_L')
-            data['parameters'] = OrderedDict(
-                [(to, v) if k == old_key else (k, v) for k, v in data['parameters'].items()])
+        # for index, row in self._df.iterrows():
+        #     # params = row['parameters']
+        #     # data['parameters']['luminosity_distance'] = data['parameters'].pop('d_L')
+        #     row['parameters'] = OrderedDict(
+        #         [(to, v) if k == old_key else (k, v) for k, v in row['parameters'].items()])
+        self._df.loc[:, 'parameters'] = self._df.loc[:, 'parameters'].apply(
+            lambda x: OrderedDict([(to, v) if k == old_key else (k, v) for k, v in x.items()]))
+
+    def __len__(self):
+        return self._df.__len__()
 
 
-def seeds2names(seeds):
+def seeds2names(seeds, zero_pad: int = 3):
     if not hasattr(seeds, '__iter__'):
         seeds = [seeds, ]
-    return [f'Raw_Dataset_{seed:03}.pt' for seed in seeds]
+    return [f'Raw_Dataset_{seed:0{zero_pad}}.pt' for seed in seeds]
 
 
 def load_rawset(dire):
@@ -217,24 +253,75 @@ def load_rawsets(directory, names: list[str], verbose: bool = True):
         names = [names, ]
     # directories = [Path(directory) / name for name in names]
     dataset = []
-    for name in names:
-        dataset = np.concatenate((dataset, load_rawset(directory / name)))
+    metadata = []
+    seeds = {}
+    for i, name in enumerate(names):
+        loaded = load_rawset(directory / name)
+        if isinstance(loaded, InjectionList):
+            seed = loaded.metadata.pop('seed')
+            loaded.metadata['seed'] = None
+            cache_check = np.array([loaded.metadata == data for data in metadata])
+            if i == 0:
+                metadata.append(loaded.metadata)
+                seeds[0] = [seed, ]
+            elif np.any(cache_check):
+                seeds[np.where(cache_check)[0].item()].append(seed)
+            else:
+                metadata.append(loaded.metadata)
+                seeds[len(metadata) - 1] = [seed, ]
+
+        dataset = np.concatenate((dataset, loaded))
         if verbose:
             print(f'Loaded {name}')
-    return RawSet(dataset, name='+'.join(names))
+    for num, seed_list in seeds.items():
+        metadata[num]['seed'] = seed_list
+
+    return RawSet(dataset, name='+'.join(names), metadata=metadata)
 
 
-def load_rawsets_pool(directory, names: list[str], verbose: bool = True):
+def load_rawsets_pool(directory, names: str | list[str], verbose: bool = True, **pool_kwargs):
     if not hasattr(names, '__iter__'):
         names = [names, ]
     directories = [Path(directory) / name for name in names]
     dataset = []
-    with Pool() as pool:
+    metadata = []
+    seeds = {}
+    with Pool(**pool_kwargs) as pool:
         for i, loaded in enumerate(pool.imap(load_rawset, directories)):
+            if isinstance(loaded, InjectionList):
+                seed = loaded.metadata.pop('seed')
+                loaded.metadata['seed'] = None
+                cache_check = np.array([loaded.metadata == data for data in metadata])
+                if i == 0:
+                    metadata.append(loaded.metadata)
+                    seeds[0] = [seed, ]
+                elif np.any(cache_check):
+                    seeds[np.where(cache_check)[0].item()].append(seed)
+                else:
+                    metadata.append(loaded.metadata)
+                    seeds[len(metadata) - 1] = [seed, ]
+
             dataset = np.concatenate((dataset, loaded))
             if verbose:
                 print(f'Loaded {names[i]}')
-    return RawSet(dataset, name='+'.join(names))
+        for num, seed_list in seeds.items():
+            metadata[num]['seed'] = seed_list
+
+    return RawSet(dataset, name='+'.join(names), pool_kwargs=pool_kwargs, metadata=metadata)
+
+
+class InjectionList(list):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._metadata = None
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+    @metadata.setter
+    def metadata(self, value: dict = None):
+        self._metadata = value
 
 
 def load_losses(directory: str | Path,
@@ -261,6 +348,7 @@ def load_losses(directory: str | Path,
     losses = {}
     vali_epochs = {}
     validations = {}
+    last_epoch = 0  # Should never be needed, but suppresses static warning
     for i, (stage, sub) in enumerate(chosen_subs.items()):
         epoch, loss = torch.load(Path(directory) / sub / 'loss_data.pt')
 
@@ -300,7 +388,7 @@ def load_losses(directory: str | Path,
 
 
 def handle_multi_index_format(temp_df: pd.DataFrame,
-                              mask_type: str = 'events',
+                              # mask_type: str = 'events',
                               show_reset_index: bool = False,
                               **format_kwargs) -> tuple[pd.DataFrame, dict]:
     """
@@ -312,7 +400,7 @@ def handle_multi_index_format(temp_df: pd.DataFrame,
     Parameters
     ----------
     temp_df : Dataframe to use for format. SHOULD BE AN OBJECT MEANT FOR FORMATTING ONLY, copied from original.
-    mask_type : Whether to mask repeating events or parameters.
+    # mask_type : Whether to mask repeating events or parameters.
     show_reset_index : Whether to keep or discard default indexes.
     format_kwargs : kwargs to pass to format function (to_markdown, for instance). Either returns them unchanged or
         with index value overridden.

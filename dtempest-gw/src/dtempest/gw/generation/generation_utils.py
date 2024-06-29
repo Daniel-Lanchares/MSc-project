@@ -1,22 +1,24 @@
+import numpy as np
+from typing import Callable
+from collections import OrderedDict
+
+import torch
+from skimage.transform import resize
 
 from pycbc.psd import interpolate, inverse_spectrum_truncation
-
-
 from gwpy.timeseries import TimeSeries
 from gwpy.signal import filter_design
-
-import numpy as np
-from skimage.transform import resize
 
 
 def set_ids(iterable, seed=0):
     valid_id = 1
     for i, injection in enumerate(iterable):
         if injection is not None:
-            injection['gen_id'] = i+1
+            injection['gen_id'] = i + 1
             injection['id'] = f'{seed}.{valid_id:05}'
-            valid_id +=1
+            valid_id += 1
     return iterable
+
 
 def cosine(minimum, maximum, size=1, rng=np.random.default_rng()):
     """
@@ -38,15 +40,15 @@ def sine(minimum, maximum, size=1, rng=np.random.default_rng()):
     return np.arccos(np.cos(minimum) - val / norm)
 
 
-def prepare_array(arr):
+def prepare_array(arr, resol=(128, 128)):
     """
     Transform q-transform's real part into a 128 x 128 channel of the image
     """
-    resol = 128
     # Might make use of the fact that it is still a Spectrogram before casting it
-    arr = np.abs(np.flip(arr, axis=1).T/np.max(arr))
-    arr = arr[:, 340:900]
-    arr = resize(arr, (resol, resol))
+    arr = np.abs(np.flip(arr, axis=1).T / np.max(arr))
+    # print(arr.shape)  # Default is (606, 1000)!!
+    # arr = arr[:, 340:900]
+    arr = resize(arr, resol)
     return arr
 
 
@@ -112,3 +114,19 @@ def gwpy_filter(timeseries: TimeSeries, detector='L1'):
     return timeseries.filter(zpk, filtfilt=True)
 
 
+def construct_dict(data, ifos, datatype: str, id_format: Callable = lambda i: str(i), metadata: dict = None):
+    from dtempest.core.common_utils import InjectionList
+    result = InjectionList([])
+    result.metadata = metadata
+    for i, (inj_data, parameters) in enumerate(data):
+        element = OrderedDict(
+            id=id_format(i),
+            parameters=parameters,
+        )
+        element[datatype] = {ifo: inj_data[j] for j, ifo in enumerate(ifos)}
+        result.append(element)
+    return result
+
+
+def save_data(data, path):
+    torch.save(data, path)
