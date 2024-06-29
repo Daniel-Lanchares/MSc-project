@@ -10,7 +10,8 @@ from pycbc.catalog.catalog import get_source
 
 from dtempest.core.conversion_utils import make_image, make_array
 from dtempest.gw.conversion import cbc_jargon
-from dtempest.gw.generation.parallel import process_strain
+from dtempest.gw.generation.generation_utils import get_psd
+from dtempest.gw.generation.parallel import process_strain, whiten
 from dtempest.gw.generation.parallel import default_config as default_gen_config
 
 full_names = {
@@ -20,8 +21,13 @@ full_names = {
     'GW190814': 'GW190814_211039'
 }
 
+
 class Merger(pycbc_Merger, dict):
-    def __init__(self, name: str, source: str | dict = 'gwtc-1', image_window: tuple = None):
+    def __init__(self,
+                 name: str,
+                 source: str | dict = 'gwtc-1',
+                 image_window: tuple = None,
+                 img_res: tuple[int, int] = (128, 128)):
         """ Return the information of a merger
 
         Parameters
@@ -64,10 +70,12 @@ class Merger(pycbc_Merger, dict):
         self.common_name = self.data['commonName']
         self.time = self.data['GPS']
         self.frame = 'source'
+        self.img_res = img_res
 
         if image_window is None:
             self.image_window = default_gen_config['q_interval']
             # print(f'Warning: No image_window specified. Resorting to default: {self.image_window}')
+        # print(name)
         self.qtransforms = self.process_strains()
         for ifo in ('L1', 'H1', 'V1'):
             if ifo not in self.detectors:
@@ -85,15 +93,26 @@ class Merger(pycbc_Merger, dict):
 
     def __repr__(self):
         items = list(self['parameters'].items())
-        rep = "{'"+str(items[0][0])+"': "+str(items[0][1])+" ... }"
+        rep = "{'" + str(items[0][0]) + "': " + str(items[0][1]) + " ... }"
         return rep
 
     def process_strains(self):
+        from .generation.images import ifo_q_transform
+        from gwpy.timeseries import TimeSeries
         channels = {}
         for ifo in self.detectors:
-            q_window = (self.time + self.image_window[0], self.time + self.image_window[1])
+            # q_window = (self.time + self.image_window[0], self.time + self.image_window[1])
+            # ts = self.strain(ifo)
+            # channels[ifo] = process_strain(ts._return(np.nan_to_num(ts)), ifo, q_window)
             ts = self.strain(ifo)
-            channels[ifo] = process_strain(ts._return(np.nan_to_num(ts)), ifo, q_window)
+            ts = TimeSeries.from_pycbc(whiten(ts, get_psd(ts)))
+            ts = ts.crop(self.time - 1, self.time + 1)
+            channels[ifo] = ifo_q_transform(ts.value,
+                                            resol=self.img_res,
+                                            duration=ts.duration,
+                                            sampling_frequency=ts.sample_rate,
+                                            outseg=(-0.1, 0.1),
+                                            frange=(20, 300))  # Todo: change from outside
         return channels
 
     def make_image(self):
@@ -108,27 +127,31 @@ class Merger(pycbc_Merger, dict):
         return ax.imshow(make_image(self, cbc_jargon), *args, **kwargs)
 
 
-default_config = {
-
-}
+# default_config = {
+#     'img_res': (128, 128)
+# }
 
 
 class Catalog(pycbc_Catalog):
-    def __init__(self, source: str = 'gwtc-1', config: dict = None):
-        if config is None:
-            config = {}
+    def __init__(self,
+                 source: str = 'gwtc-1',
+                 # config: dict = None,
+                 **merger_kwargs):
+        # if config is None:
+        #     config = {}
 
         self.source = source
 
-        self.config = deepcopy(default_config)
-        for attr, val in config.items():
-            if attr not in self.config.keys():
-                raise KeyError(f'Specified key ({attr}) misspelled or not implemented')
-            self.config[attr] = val
+        # self.config = deepcopy(default_config)
+        # for attr, val in config.items():
+        #     if attr not in self.config.keys():
+        #         raise KeyError(f'Specified key ({attr}) misspelled or not implemented')
+        #     self.config[attr] = val
 
         self.data = get_source(source=self.source)
         self.mergers = {name: Merger(name,
-                                     source=source) for name in self.data.keys()}
+                                     source=source,
+                                     **merger_kwargs) for name in self.data.keys() if name != 'GW190720_000836-v2'}  # TODO: fix?
         self.names = self.mergers.keys()
         self.common_names = [self.mergers[m].common_name for m in self.mergers]
 
