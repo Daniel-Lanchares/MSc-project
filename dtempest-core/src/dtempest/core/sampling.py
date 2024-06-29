@@ -241,7 +241,7 @@ class MSEDataFrame:
                           name=self.name, sqrt=self.sqrt, relative=self.relative, verbose=self.verbose)
 
 
-class SampleDict(SamplesDict):
+class SampleDict(SamplesDict):  # TODO: load_from_file/write for core classes. Consider h5py?
 
     def __init__(self, parameters, name: str = None,
                  _series_class=MSESeries, _dataframe_class=MSEDataFrame, jargon: dict = no_jargon):
@@ -297,7 +297,8 @@ class SampleDict(SamplesDict):
         else:
             return truths
 
-    def from_file(self, filepath):
+    @classmethod
+    def from_file(cls, filepath):
         raise NotImplementedError
 
     @classmethod
@@ -478,7 +479,7 @@ class SampleDict(SamplesDict):
                     error[param] *= 100 / np.abs(ref)
             else:
                 error[param] = (avg - ref) ** 2
-                if relative:  # TODO: this one I cannot even interpret, might just avoid
+                if relative:  # This one I cannot even interpret, might just avoid
                     error[param] *= 100 / ref ** 2
         return error
 
@@ -837,7 +838,7 @@ class ComparisonSampleDict(MultiAnalysisSamplesDict):
 
         _samples = {label: self[label] for label in analysis}
         _parameters = parameters
-        if _parameters is not None:  # TODO: make parameter intersection into a common function
+        if _parameters is not None:
             params = [
                 param for param in _parameters if all(
                     param in posterior for posterior in _samples.values()

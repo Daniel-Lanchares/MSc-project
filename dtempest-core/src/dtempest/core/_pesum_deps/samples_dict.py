@@ -1440,58 +1440,57 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         )
         self.name = MultiAnalysisSamplesDict
 
-    @classmethod
-    def from_files(cls, filenames, **kwargs):
-        """Initialize the MultiAnalysisSamplesDict class with the contents of
-        multiple result files
-
-        Parameters
-        ----------
-        filenames: dict
-            dictionary containing the path to the result file you wish to load
-            as the item and a label associated with each result file as the key.
-            If you are providing one or more PESummary metafiles, the key
-            is ignored and labels stored in the metafile are used.
-        **kwargs: dict
-            all kwargs are passed to the pesummary.io.read function
-        """
-        # TODO
-        from pesummary.io import read
-
-        samples = {}
-        for label, filename in filenames.items():
-            _kwargs = kwargs
-            if label in kwargs.keys():
-                _kwargs = kwargs[label]
-            _file = read(filename, **_kwargs)
-            _samples = _file.samples_dict
-            if isinstance(_samples, MultiAnalysisSamplesDict):
-                _stored_labels = _samples.keys()
-                cond1 = any(
-                    _label in filenames.keys() for _label in _stored_labels if
-                    _label != label
-                )
-                cond2 = any(
-                    _label in samples.keys() for _label in _stored_labels
-                )
-                if cond1 or cond2:
-                    raise ValueError(
-                        "The file '{}' contains the labels: {}. The "
-                        "dictionary already contains the labels: {}. Please "
-                        "provide unique labels for each dataset".format(
-                            filename, ", ".join(_stored_labels),
-                            ", ".join(samples.keys())
-                        )
-                    )
-                samples.update(_samples)
-            else:
-                if label in samples.keys():
-                    raise ValueError(
-                        "The label '{}' has alreadt been used. Please select "
-                        "another label".format(label)
-                    )
-                samples[label] = _samples
-        return cls(samples)
+    # @classmethod
+    # def from_files(cls, filenames, **kwargs):
+    #     """Initialize the MultiAnalysisSamplesDict class with the contents of
+    #     multiple result files
+    #
+    #     Parameters
+    #     ----------
+    #     filenames: dict
+    #         dictionary containing the path to the result file you wish to load
+    #         as the item and a label associated with each result file as the key.
+    #         If you are providing one or more PESummary metafiles, the key
+    #         is ignored and labels stored in the metafile are used.
+    #     **kwargs: dict
+    #         all kwargs are passed to the pesummary.io.read function
+    #     """
+    #     from pesummary.io import read
+    #
+    #     samples = {}
+    #     for label, filename in filenames.items():
+    #         _kwargs = kwargs
+    #         if label in kwargs.keys():
+    #             _kwargs = kwargs[label]
+    #         _file = read(filename, **_kwargs)
+    #         _samples = _file.samples_dict
+    #         if isinstance(_samples, MultiAnalysisSamplesDict):
+    #             _stored_labels = _samples.keys()
+    #             cond1 = any(
+    #                 _label in filenames.keys() for _label in _stored_labels if
+    #                 _label != label
+    #             )
+    #             cond2 = any(
+    #                 _label in samples.keys() for _label in _stored_labels
+    #             )
+    #             if cond1 or cond2:
+    #                 raise ValueError(
+    #                     "The file '{}' contains the labels: {}. The "
+    #                     "dictionary already contains the labels: {}. Please "
+    #                     "provide unique labels for each dataset".format(
+    #                         filename, ", ".join(_stored_labels),
+    #                         ", ".join(samples.keys())
+    #                     )
+    #                 )
+    #             samples.update(_samples)
+    #         else:
+    #             if label in samples.keys():
+    #                 raise ValueError(
+    #                     "The label '{}' has alreadt been used. Please select "
+    #                     "another label".format(label)
+    #                 )
+    #             samples[label] = _samples
+    #     return cls(samples)
 
     @property
     def plotting_map(self):
@@ -1840,30 +1839,30 @@ class MultiAnalysisSamplesDict(_MultiDimensionalSamplesDict):
         """
         return self._combine(**kwargs)
 
-    def write(self, labels=None, **kwargs):
-        """Save the stored posterior samples to file
-
-        Parameters
-        ----------
-        labels: list, optional
-            list of analyses that you wish to save to file. Default save all
-            analyses to file
-        **kwargs: dict, optional
-            all additional kwargs passed to the pesummary.io.write function
-        """
-        if labels is None:
-            labels = self.labels
-        elif not all(label in self.labels for label in labels):
-            for label in labels:
-                if label not in self.labels:
-                    raise ValueError(
-                        "Unable to find analysis: '{}'. The list of "
-                        "available analyses are: {}".format(
-                            label, ", ".join(self.labels)
-                        )
-                    )
-        for label in labels:
-            self[label].write(**kwargs)
+    # def write(self, labels=None, **kwargs):
+    #     """Save the stored posterior samples to file
+    #
+    #     Parameters
+    #     ----------
+    #     labels: list, optional
+    #         list of analyses that you wish to save to file. Default save all
+    #         analyses to file
+    #     **kwargs: dict, optional
+    #         all additional kwargs passed to the pesummary.io.write function
+    #     """
+    #     if labels is None:
+    #         labels = self.labels
+    #     elif not all(label in self.labels for label in labels):
+    #         for label in labels:
+    #             if label not in self.labels:
+    #                 raise ValueError(
+    #                     "Unable to find analysis: '{}'. The list of "
+    #                     "available analyses are: {}".format(
+    #                         label, ", ".join(self.labels)
+    #                     )
+    #                 )
+    #     for label in labels:
+    #         self[label].write(**kwargs)
 
     def js_divergence(self, parameter, decimal=5):
         """Return the JS divergence between the posterior samples for
