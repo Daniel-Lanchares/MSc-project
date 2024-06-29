@@ -85,7 +85,7 @@ class _DistributionPlotter(SeabornDistributionPlotter):
             artist = mpl.collections.PolyCollection
         else:
             artist = mpl.lines.Line2D
-        plot_kws = _normalize_kwargs(plot_kws, artist)
+        plot_kws = normalize_kwargs(plot_kws, artist)
 
         # Input checking
         _check_argument("multiple", ["layer", "stack", "fill"], multiple)

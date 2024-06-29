@@ -1,16 +1,17 @@
 import numpy as np
 import astropy.cosmology as cosmo
 
+
 # Parameter redefinitions.
 # kwargs is used because we will input all base parameters to all functions
 
 
 def mass_1(mass_1_source, redshift, **kwargs):
-    return mass_1_source*(1+redshift)
+    return mass_1_source * (1 + redshift)
 
 
 def mass_2(mass_2_source, redshift, **kwargs):
-    return mass_2_source*(1+redshift)
+    return mass_2_source * (1 + redshift)
 
 
 def chirp_mass(mass_1, mass_2, **kwargs):
@@ -92,8 +93,11 @@ def chi_p(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
     return np.maximum(chi1_p, q * (3 * q + 4) / (4 * q + 3) * chi2_p)
 
 
-def d_L(z):
+def luminosity_distance(z):
     raise NotImplementedError
+
+
+d_L = luminosity_distance
 
 redef_dict = {  # MANY MISSING (redshift) #TODO
     'mass_1': mass_1,
@@ -107,6 +111,8 @@ redef_dict = {  # MANY MISSING (redshift) #TODO
     'chi_2': chi_2,
     'chi_1_in_plane': chi_1_in_plane,
     'chi_2_in_plane': chi_2_in_plane,
+    'd_L': luminosity_distance,
+    'luminosity_distance': luminosity_distance
 }
 
 unit_dict = {  # MANY MISSING #TODO
@@ -138,6 +144,7 @@ alias_dict = {  # MANY MISSING #TODO
     'chi_eff': r'$\chi_{eff}$',
     'chi_p': r'$\chi_{p}$',
     'd_L': r'$d_L$',
+    'luminosity_distance': r'$d_L$',
     'ra': r'$ra$',
     'dec': r'$dec$'
 }

@@ -11,6 +11,7 @@ def gw_title_maker(data):
 
 
 cbc_jargon = Jargon({
+    'parameters': 'parameters',
     'image': 'q-transforms',
     'R': 'L1',
     'G': 'H1',

@@ -5,6 +5,7 @@ def default_title_maker(data):
 
 
 _no_jargon = {
+    'parameters': 'parameters',
     'image': 'image',
     'R': 'R',
     'G': 'G',
