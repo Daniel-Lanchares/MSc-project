@@ -13,9 +13,9 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 n = 4
 m = 2
-letter = '.B3'
+letter = '.B6'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets'
+rawdat_dir = files_dir / 'Raw Datasets' / 'Originals'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 1. 5 parameter model (Big Dataset)'
 traindir0 = train_dir / f'training_test_{n}'
@@ -51,9 +51,9 @@ kwargs = {
     'bins': 20,
     'title_quantiles': [0.16, 0.5, 0.84],
     'smooth': 1.4,
-    'label_kwargs': {'fontsize': 15},
+    'label_kwargs': {'fontsize': 25},
     # 'labelpad': 0.2,
-    'title_kwargs': {'fontsize': 15},
+    'title_kwargs': {'fontsize': 25},
 
 
     'kde': stats.gaussian_kde,
@@ -71,10 +71,11 @@ select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'the
 fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
                  fig=fig, **kwargs)
 fig = plot_image(image, fig=fig,
-                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
+                 title_kwargs={'fontsize': 20})
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
-# fig.savefig(f'corner_{flow0.name}_{event}.png', bbox_inches='tight')
-plt.show()
+fig.savefig(f'corner_{flow0.name}_{event}_v2.png', bbox_inches='tight')
+# plt.show()
 
 
 # For discarding problematic samples

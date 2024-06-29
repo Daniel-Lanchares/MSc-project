@@ -19,9 +19,9 @@ import time
 '''
 
 '''
-n = 2
+n = 5
 m = 0
-letter = ''
+letter = 'low_chirp'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -41,14 +41,14 @@ corner_dir = estimation_dir / 'Corners'
 # testset = convert_dataset(catalog.mergers.values(), flow0.param_list)
 # sset0 = flow0.sample_set(3000, testset, name=f'flow {flow0.name}')
 
-# cat = 'gwtc-1'
+cat = 'gwtc-1'
 # event = 'GW150914'
 # event = 'GW170823'
 
-# cat = 'gwtc-2.1'
+# cat = 'gwtc-2.1'  # NANs in GW190720_000836????
 # event = 'GW190814_211039' # .split('_')[0] # GW190814 is a bit special...
 
-cat = 'gwtc-1'
+# cat = 'gwtc-3'
 # event = 'GW200129_065458'
 # event = 'GW200208_222617'
 # event = 'GW200224_222234'
@@ -58,7 +58,27 @@ cat = 'gwtc-1'
 
 # merger = Merger(event, cat)
 
-catalog = Catalog(cat)
+plot_font_dict = {
+    'labels': {
+        'gwtc-1': 25, 'gwtc-2.1': 25, 'gwtc-3': 25
+    },
+    'medians': {
+        'gwtc-1': 20, 'gwtc-2.1': 20, 'gwtc-3': 20
+    },
+    'title': {
+        'gwtc-1': 40, 'gwtc-2.1': 40, 'gwtc-3': 40
+    },
+    'legend': {
+        'gwtc-1': 25, 'gwtc-2.1': 30, 'gwtc-3': 30
+    },
+}
+
+merger_kwargs = {
+    'img_res': (64, 96)
+}
+resol = merger_kwargs['img_res']
+
+catalog = Catalog(cat, **merger_kwargs)
 catalog.common_names.reverse()
 
 print(catalog.common_names, len(catalog.common_names))
@@ -146,8 +166,8 @@ for event in catalog.common_names:
         'bins': 20,
         'title_quantiles': [0.16, 0.5, 0.84],
         'smooth': 1.4,
-        'label_kwargs': {'fontsize': 25},
-        'title_kwargs': {'fontsize': 20},
+        'label_kwargs': {'fontsize': plot_font_dict['labels'][cat]},  # 25 for GWTC-1, 25 for GWTC-2/3?
+        'title_kwargs': {'fontsize': plot_font_dict['medians'][cat]},  # 20 for GWTC-1, 20 for GWTC-2/3?
         'kde': stats.gaussian_kde
     }
 
@@ -156,10 +176,15 @@ for event in catalog.common_names:
     plt.tight_layout(h_pad=-3, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
     fig = plot_image(image, fig=fig,
                      title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
-                     title_kwargs={'fontsize': 40})
+                     title_kwargs={'fontsize': plot_font_dict['title'][cat]},  # 40 for GWTC-1, 40 for GWTC-2/3?
+                     aspect=resol[1] / resol[0])
     fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
-    redraw_legend(fig, fontsize=30, loc='upper center', handlelength=2, linewidth=5)
+    redraw_legend(fig,
+                  fontsize=plot_font_dict['legend'][cat],  # 25 for GWTC-1, 30 for GWTC-2/3
+                  loc='upper center',
+                  handlelength=2,
+                  linewidth=5)
 
     fig.savefig(corner_dir / f'{event}_{flow0.name}_{cat.upper()}.png', bbox_inches='tight')
 
@@ -175,5 +200,16 @@ print(f'{(t2-t1)/60:.2f} minutes')
 
 
 '''
+Each analysis requires loading and converting reference samples (which is by far the bottleneck), sampling 10000 times 
+and plotting the results, as well as saving median and 1 sigma deviation data.
+
 Spv5.2.0 Analyses GWTC-1 in 7.52 minutes
+
+Spv5.4.0 Analyses GWTC-1 in 7.70 minutes (11 events)
+Spv5.4.0 Analyses GWTC-2.1 in 13.19 minutes (43 events, missing GW190720_000836 due to nan issues in V1 data)
+Spv5.4.0 Analyses GWTC-3 in 10.89 minutes (35 events)
+
+Spv5.5.0low_chirp Analyses GWTC-1 in 7.66 minutes (11 events)
+Spv5.5.0low_chirp Analyses GWTC-2.1 in ? minutes (43 events, missing GW190720_000836 due to nan issues in V1 data)
+Spv5.5.0low_chirp Analyses GWTC-3 in ? minutes (35 events)
 '''

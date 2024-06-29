@@ -16,11 +16,11 @@ from pesummary.gw.conversions import convert
 '''
 
 '''
-n = 0
+n = 5
 m = 0
-letter = ''
+letter = 'high_chirp'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets'
+# rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
@@ -31,8 +31,8 @@ catalog_3 = files_dir / 'GWTC-3 Samples'
 flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
 flow0.eval()
 
-flow2 = CBCEstimator.load_from_file(train_dir / f'training_test_{n+2}' / f'Spv5.{n+2}.{m}{letter}.pt')
-flow2.eval()
+# flow2 = CBCEstimator.load_from_file(train_dir / f'training_test_{n+2}' / f'Spv5.{n+2}.{m}{letter}.pt')
+# flow2.eval()
 
 
 def dingo_mass_plot():
@@ -130,8 +130,8 @@ def dingo_mass_plot():
     for ax in axs:
         ax.set_xlim((10, 80))
     axs[2].set_ylim((10, 80))
-    # plt.show()
-    fig.savefig(f'{cat.upper()}_{flow0.name}_90%_mass.png', bbox_inches='tight')
+    plt.show()
+    # fig.savefig(f'{cat.upper()}_{flow0.name}_90%_mass.png', bbox_inches='tight')
 
 
 def basic_corner():
@@ -141,9 +141,13 @@ def basic_corner():
     cat = 'gwtc-1'
     # event = 'GW150914'
     event = 'GW170823'
+    # event = 'GW170104'
+    # event = 'GW170818'
 
     # cat = 'gwtc-2.1'
     # event = 'GW190814_211039' # .split('_')[0] # GW190814 is a bit special...
+    # event = 'GW190503_185404'
+    # event = 'GW190517_055101'
 
     # cat = 'gwtc-3'
     # event = 'GW200129_065458'
@@ -153,7 +157,8 @@ def basic_corner():
     # event = 'GW200308_173609'
     # gwtc = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
 
-    merger = Merger(event, cat)
+    resol = (64, 96)#(48, 72)
+    merger = Merger(event, cat, img_res=resol)
 
     if cat == 'gwtc-1':
         gwtc = convert(CBCSampleDict.from_file(catalog_1 / f'{event}_GWTC-1.hdf5'))
@@ -176,11 +181,11 @@ def basic_corner():
     # label = testset['labels'][event]
     image = merger.make_array()
     sdict = flow0.sample_dict(10000, context=image)  # 20000 takes all my RAM for a few seconds...
-    sdict2 = flow2.sample_dict(10000, context=image)
+    # sdict2 = flow2.sample_dict(10000, context=image)
 
     multi = CBCComparisonSampleDict({cat.upper(): gwtc,
-                                     f"Estimator {flow0.name}": sdict,
-                                     f"Estimator {flow2.name}": sdict2})
+                                     f"Estimator {flow0.name}": sdict,})
+                                     # f"Estimator {flow2.name}": sdict2})
 
     del sdict, gwtc
 
@@ -196,9 +201,9 @@ def basic_corner():
         'bins': 20,
         'title_quantiles': [0.16, 0.5, 0.84],
         'smooth': 1.4,
-        'label_kwargs': {'fontsize': 15},
+        'label_kwargs': {'fontsize': 25},  # 25 for GWTC-1, 25 for GWTC-2/3?
         # 'labelpad': 0.2,
-        'title_kwargs': {'fontsize': 15},
+        'title_kwargs': {'fontsize': 20},  # 20 for GWTC-1, 20 for GWTC-2/3?
 
         'kde': stats.gaussian_kde
         # 'kde': bounded_1d_kde,
@@ -212,13 +217,19 @@ def basic_corner():
     #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
     fig = plot_image(image, fig=fig,
                      title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
-                     title_kwargs={'fontsize': 20})
+                     title_kwargs={'fontsize': 40},  # 40 for GWTC-1, 40 for GWTC-2/3?
+                     aspect=resol[1] / resol[0])
     fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
     from dtempest.core.common_utils import redraw_legend
-    redraw_legend(fig, fontsize=20, loc='upper center', handlelength=2, linewidth=5)
+    redraw_legend(fig,
+                  fontsize=30,  # 25 for GWTC-1, 30 for GWTC-2/3
+                  loc='upper center',
+                  bbox_to_anchor=(0.4, 0.98),
+                  handlelength=2,
+                  linewidth=5)
 
-    fig.savefig(f'{event}_{flow0.name}_{flow2.name}_comparison.png', bbox_inches='tight')
+    fig.savefig(f'{event}_{flow0.name}_comparison.png', bbox_inches='tight')
     # plt.show()
 
 

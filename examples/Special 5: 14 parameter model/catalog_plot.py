@@ -16,7 +16,7 @@ from copy import copy
 # from pesummary.gw.conversions import convert
 from pesummary.gw.plots.latex_labels import GWlatex_labels
 
-n = 2
+n = 0
 m = 0
 letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
@@ -55,12 +55,8 @@ def for_gwtc1():
     if cat != 'gwtc-1':
         raise ValueError(f'This function is for GWTC-1 only, not for {cat.upper()}')
 
-    offset = 3
+    offset = 1.5
     nparams = 10
-
-    fig, axs = plt.subplots(2, nparams // 2, figsize=(20, 15), sharey='all')
-    fig.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names)
-    axs = axs.flatten()
 
     gwtc_kwargs = {
         'capsize': 5,
@@ -80,6 +76,33 @@ def for_gwtc1():
         'label': rf'{flow0.name} 1$\sigma$ range'
     }
 
+    name_kwargs = {
+        'fontsize': 18
+    }
+    param_kwargs = {
+        'fontsize': 20
+    }
+    xticks_kwargs = {
+        'labelsize': 15
+    }
+
+    legend_kwargs = {
+        'mode': 'expand',
+        'loc': 'upper center',
+        'ncols': 2,
+        'numpoints': 1,
+        'bbox_to_anchor': (0.119, 0.88, 0.7871, 0.05),
+        'borderpad': 0.7,
+        'edgecolor': 'k',
+        'fontsize': 18
+    }
+
+    fig, axs = plt.subplots(2, nparams // 2, figsize=(20, 15))
+    fig.subplots_adjust(wspace=0.05)
+    axs = axs.flatten()
+    [ax.set_yticks([]) if i not in (0, nparams//2)
+     else ax.set_yticks(np.arange(len(names)) + offset, names, **name_kwargs) for i, ax in enumerate(axs)]
+
     for i, (event, evt_reference) in enumerate(gwtc_data.items()):
         for j, (param, reference) in enumerate(evt_reference.items()):
             gwtc_kwargs_copy = copy(gwtc_kwargs)
@@ -94,15 +117,19 @@ def for_gwtc1():
             predict = dtpst_data[event][param]
             median, upper, lower = predict['median'], predict['upper'], predict['lower']
             axs[j].errorbar(median, i + offset, xerr=np.array([[lower], [upper]]), **dtpst_kwargs_copy)
-            axs[j].set_xlabel(GWlatex_labels[param])
+            axs[j].set_xlabel(GWlatex_labels[param], **param_kwargs)
 
             if event == 'GW170817':
                 axs[j].axhspan(i + offset - 0.25, i + offset + 0.25, color='tab:red', alpha=0.4)
 
-    fig.legend(mode='expand', loc='upper center', ncols=2, numpoints=1,
-               bbox_to_anchor=(0.12, 0.87, 0.785, 0.05), borderpad=0.7, )
+    # [ax.set_yticks([]) for ax in axs[1:]]
+    [(ax.set_ylim((1, len(names)+offset-0.5)),
+      ax.grid(axis='x'),
+      ax.tick_params(axis='x', **xticks_kwargs)) for ax in axs]
+
+    fig.legend(**legend_kwargs)
     # title=f'{flow0.name} analysis of the {cat.upper()} catalog',)
-    fig.savefig(estimation_dir / f'full_{cat.upper()}_{flow0.name}.png', bbox_inches='tight')
+    fig.savefig(estimation_dir / f'{cat.upper()}_{flow0.name}.png', bbox_inches='tight')
     # plt.show()
 
 
@@ -110,12 +137,9 @@ def for_gwtc2():
     if cat != 'gwtc-2.1':
         raise ValueError(f'This function is for GWTC-2.1 only, not for {cat.upper()}')
 
-    offset = 3
+    offset = 1.5
     nparams = 14
-
-    fig, axs = plt.subplots(2, nparams // 2, figsize=(30, 65), sharey='all')
-    fig.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names)
-    axs = axs.flatten()
+    size = (30, 35)
 
     gwtc_kwargs = {
         'capsize': 5,
@@ -135,13 +159,50 @@ def for_gwtc2():
         'label': rf'{flow0.name} 1$\sigma$ range'
     }
 
+    name_kwargs = {
+        'fontsize': 18
+    }
+    param_kwargs = {
+        'fontsize': 20
+    }
+    xticks_kwargs = {
+        'labelsize': 15
+    }
+
+    legend_kwargs = {
+        'mode': 'expand',
+        'loc': 'upper center',
+        'ncols': 2,
+        'numpoints': 1,
+        'bbox_to_anchor': (0.121, 0.852, 0.7835, 0.05),
+        'borderpad': 0.7,
+        'edgecolor': 'k',
+        'fontsize': 18
+    }
+
+    # fig, axs = plt.subplots(2, nparams // 2, figsize=(30, 65), sharey='all')
+    # fig.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names)
+    fig1, axs1 = plt.subplots(1, nparams // 2, figsize=size)
+    fig2, axs2 = plt.subplots(1, nparams // 2, figsize=size)
+    fig1.subplots_adjust(wspace=0.05)
+    fig2.subplots_adjust(wspace=0.05)
+
+    fig1.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names, **name_kwargs)
+    fig2.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names, **name_kwargs)
+
+    [(ax1.set_yticks([]), ax2.set_yticks([])) for (ax1, ax2) in zip(axs1[1:], axs2[1:])]
+
+    axs: np.ndarray[plt.Axes] = np.concatenate((axs1, axs2), dtype=object)
+
+    [(ax.set_ylim((1, len(names)+offset-0.5)), ax.grid(axis='x')) for ax in axs]
+
     for i, (event, evt_reference) in enumerate(gwtc_data.items()):
         for j, (param, reference) in enumerate(evt_reference.items()):
             gwtc_kwargs_copy = copy(gwtc_kwargs)
             dtpst_kwargs_copy = copy(dtpst_kwargs)
             if j == nparams:
                 break
-            if i != len(names) - 1 or j != nparams - 1:
+            if (i, j) != (len(names)//2 - 1, nparams//2 - 1) and (i, j) != (len(names) - 1, nparams - 1):
                 del gwtc_kwargs_copy['label'], dtpst_kwargs_copy['label']
 
             median, upper, lower = reference['median'], reference['upper'], reference['lower']
@@ -149,16 +210,19 @@ def for_gwtc2():
             predict = dtpst_data[event][param]
             median, upper, lower = predict['median'], predict['upper'], predict['lower']
             axs[j].errorbar(median, i + offset, xerr=np.array([[lower], [upper]]), **dtpst_kwargs_copy)
-            axs[j].set_xlabel(GWlatex_labels[param])
+            axs[j].set_xlabel(GWlatex_labels[param], **param_kwargs)
 
             if event in ['GW190425_081805', 'GW190814_211039']:
                 axs[j].axhspan(i + offset - 0.25, i + offset + 0.25, color='tab:red', alpha=0.4)
 
     axs[8].set_xlim(right=8500)
-    fig.legend(mode='expand', loc='upper center', ncols=2, numpoints=1,
-               bbox_to_anchor=(0.122, 0.8465, 0.7812, 0.05), borderpad=0.7, )
+    [ax.tick_params(axis='x', **xticks_kwargs) for ax in axs]
+    fig1.legend(**legend_kwargs)
+    fig2.legend(**legend_kwargs)
     # title=f'{flow0.name} analysis of the {cat.upper()} catalog',)
-    fig.savefig(estimation_dir / f'full_{cat.upper()}_{flow0.name}_large.png', bbox_inches='tight')
+    # fig.savefig(estimation_dir / f'full_{cat.upper()}_{flow0.name}_large.png', bbox_inches='tight')
+    fig1.savefig(estimation_dir / f'{cat.upper()}_{flow0.name}_part1.png', bbox_inches='tight')
+    fig2.savefig(estimation_dir / f'{cat.upper()}_{flow0.name}_part2.png', bbox_inches='tight')
     # plt.show()
 
 
@@ -166,12 +230,9 @@ def for_gwtc3():
     if cat != 'gwtc-3':
         raise ValueError(f'This function is for GWTC-3 only, not for {cat.upper()}')
 
-    offset = 3
+    offset = 1.5
     nparams = 14
-
-    fig, axs = plt.subplots(2, nparams // 2, figsize=(30, 65), sharey='all')
-    fig.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names)
-    axs = axs.flatten()
+    size = (30, 35)
 
     gwtc_kwargs = {
         'capsize': 5,
@@ -191,13 +252,50 @@ def for_gwtc3():
         'label': rf'{flow0.name} 1$\sigma$ range'
     }
 
+    name_kwargs = {
+        'fontsize': 18
+    }
+    param_kwargs = {
+        'fontsize': 20
+    }
+    xticks_kwargs = {
+        'labelsize': 15
+    }
+
+    legend_kwargs = {
+        'mode': 'expand',
+        'loc': 'upper center',
+        'ncols': 2,
+        'numpoints': 1,
+        'bbox_to_anchor': (0.121, 0.852, 0.7835, 0.05),
+        'borderpad': 0.7,
+        'edgecolor': 'k',
+        'fontsize': 18
+    }
+
+    # fig, axs = plt.subplots(2, nparams // 2, figsize=(30, 65), sharey='all')
+    # fig.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names)
+    fig1, axs1 = plt.subplots(1, nparams // 2, figsize=size)
+    fig2, axs2 = plt.subplots(1, nparams // 2, figsize=size)
+    fig1.subplots_adjust(wspace=0.05)
+    fig2.subplots_adjust(wspace=0.05)
+
+    fig1.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names, **name_kwargs)
+    fig2.get_axes()[0].set_yticks(np.arange(len(names)) + offset, names, **name_kwargs)
+
+    [(ax1.set_yticks([]), ax2.set_yticks([])) for (ax1, ax2) in zip(axs1[1:], axs2[1:])]
+
+    axs: np.ndarray[plt.Axes] = np.concatenate((axs1, axs2), dtype=object)
+
+    [(ax.set_ylim((1, len(names) + offset - 0.5)), ax.grid(axis='x')) for ax in axs]
+
     for i, (event, evt_reference) in enumerate(gwtc_data.items()):
         for j, (param, reference) in enumerate(evt_reference.items()):
             gwtc_kwargs_copy = copy(gwtc_kwargs)
             dtpst_kwargs_copy = copy(dtpst_kwargs)
             if j == nparams:
                 break
-            if i != len(names) - 1 or j != nparams - 1:
+            if (i, j) != (len(names) // 2 - 1, nparams // 2 - 1) and (i, j) != (len(names) - 1, nparams - 1):
                 del gwtc_kwargs_copy['label'], dtpst_kwargs_copy['label']
 
             median, upper, lower = reference['median'], reference['upper'], reference['lower']
@@ -205,14 +303,19 @@ def for_gwtc3():
             predict = dtpst_data[event][param]
             median, upper, lower = predict['median'], predict['upper'], predict['lower']
             axs[j].errorbar(median, i + offset, xerr=np.array([[lower], [upper]]), **dtpst_kwargs_copy)
-            axs[j].set_xlabel(GWlatex_labels[param])
+            axs[j].set_xlabel(GWlatex_labels[param], **param_kwargs)
 
-            if event in ['GW200115_042309',]:
+            if event in ['GW200115_042309']:
                 axs[j].axhspan(i + offset - 0.25, i + offset + 0.25, color='tab:red', alpha=0.4)
 
     axs[8].set_xlim(right=8500)
-    fig.legend(mode='expand', loc='upper center', ncols=2, numpoints=1,
-               bbox_to_anchor=(0.122, 0.8465, 0.7812, 0.05), borderpad=0.7, )
+    [ax.tick_params(axis='x', **xticks_kwargs) for ax in axs]
+    fig1.legend(**legend_kwargs)
+    fig2.legend(**legend_kwargs)
+    # title=f'{flow0.name} analysis of the {cat.upper()} catalog',)
+    # fig.savefig(estimation_dir / f'full_{cat.upper()}_{flow0.name}_large.png', bbox_inches='tight')
+    fig1.savefig(estimation_dir / f'{cat.upper()}_{flow0.name}_part1.png', bbox_inches='tight')
+    fig2.savefig(estimation_dir / f'{cat.upper()}_{flow0.name}_part2.png', bbox_inches='tight')
     # title=f'{flow0.name} analysis of the {cat.upper()} catalog',)
     # fig.savefig(estimation_dir / f'full_{cat.upper()}_{flow0.name}_large.png', bbox_inches='tight')
     # plt.show()

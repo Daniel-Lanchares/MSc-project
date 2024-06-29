@@ -22,7 +22,7 @@ Hopefully can be reduced.
 '''
 
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets'
+rawdat_dir = files_dir / 'Raw Datasets' / 'Originals'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '1. Chirp mass estimator'
 traindir0 = train_dir / 'training_test_0'
@@ -34,7 +34,7 @@ catalog_dir = files_dir / 'GWTC-1 Samples'
 
 # dataset = load_rawsets(rawdat_dir, seeds2names(3))
 
-flow = CBCEstimator.load_from_file(traindir4 / 'v0.4.1.pt')
+flow = CBCEstimator.load_from_file(traindir4 / 'v0.4.0.pt')
 flow0 = CBCEstimator.load_from_file(traindir4 / 'v0.4.2.pt')
 flow1 = CBCEstimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow.eval()
@@ -52,14 +52,14 @@ dataset.change_parameter_name('d_L', to='luminosity_distance')
 testset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
 
-for model in [flow]:
-    # model.pprint_metadata(except_keys=['jargon', ('net_config', 'base_net')])
-    sset = model.sample_set(3000, testset, name=model.name)
-    full = sset.full_test()
-    print(model.name)
-    print(full.pp_mean().to_latex(float_format="%.3f"))
-    print('\n\n\n')
-raise Exception
+# for model in [flow]:
+#     # model.pprint_metadata(except_keys=['jargon', ('net_config', 'base_net')])
+#     sset = model.sample_set(3000, testset, name=model.name)
+#     full = sset.full_test()
+#     print(model.name)
+#     print(full.pp_mean().to_latex(float_format="%.3f"))
+#     print('\n\n\n')
+# raise Exception
 
 # trainset = convert_dataset(dataset, flow1.param_list)
 
@@ -116,7 +116,7 @@ catalog = Catalog('gwtc-1')
 #                              title=r'$\bf{MKI}$ vs $\bf{v0.1.0}$')
 # plt.show()
 
-event = 'GW170823'
+event = 'GW150914'
 
 #gwtc1 = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
 
@@ -133,7 +133,7 @@ multi = CBCComparisonSampleDict({"GWTC-1": gwtc1,
                                  f"Estimator {flow1.name}": sdict1})
 
 
-fig = multi.plot('chirp_mass', type='hist', kde=True, figsize=(10, 8),
+fig = multi.plot('chirp_mass', type='hist', kde=True, figsize=(10, 6),
                  legend_kwargs=dict(
     bbox_to_anchor=(0.0, 1.02, 1.0, 0.102), loc=3, handlelength=3, mode="expand",
     borderaxespad=0.0, title=f'Comparison for {event}', title_fontsize='large'
@@ -142,7 +142,7 @@ fig = multi.plot('chirp_mass', type='hist', kde=True, figsize=(10, 8),
 # plt.axvline(testset['labels'][event], color='tab:orange')
 # plt.title(f'Comparison for {event}', pad=35)
 # plt.savefig(f'comparison_{flow1.name}_{event}.png')
-plt.gca().set_xlim((0, 60))
+plt.gca().set_xlim((10, 50))
 # plt.savefig(f'original_models_{event}.png')
 plt.show()
 # Idea: Model family class: sharing common architecture. Example: Family 0.1: Same config as v0.1.0

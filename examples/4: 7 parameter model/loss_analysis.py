@@ -34,7 +34,7 @@ loss_avgd = [epo.reshape((len(epo[0]),)) for epo in loss_avgd]
 # loss_avgd = np.array(loss_avgd)
 print(epochs_avgd)
 
-plt.figure(figsize=(12, 6))
+plt.figure(figsize=(16, 6))
 
 lines = ['-', '--', '-.', ':']
 
@@ -49,11 +49,15 @@ for i, stage in enumerate(range(n_models)):
     # plt.plot(vali_epochs_avgd[i], valid_avgd[i],
     #          label=f'validation v2.{n}.{stage}', linestyle=lines[i], color='tab:orange')
 
-plt.legend()
-plt.title(f'Loss plot 4.{n}.x\n Extractor net test: pre-trained fixed  vs pre-trained overwritten vs custom untrained')
-plt.xlabel('epochs')
-plt.ylabel('loss score\n(-log_prob)')
+plt.legend(fontsize=18)
+plt.title(f'Loss plot 4.{n}.x\n' +
+          r"Extractor net test:  'pre-trained fixed'  vs  'pre-trained overwritten'  vs  'custom untrained'",
+          fontsize=18)
+plt.xlabel('epochs', fontsize=18)
+plt.ylabel('loss score\n(-log_prob)', fontsize=18, labelpad=16.0)
 plt.ylim((10, 80))
+plt.xticks(range(1, 11), fontsize=16)
+plt.yticks(fontsize=16)
 # plt.xticks(range(1, len(epochs_avgd.flatten()) + 1))
 # plt.savefig('loss_comparison_v0.3.0-v0.7.0.png')
 plt.show()

@@ -11,23 +11,26 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
+n = 5
+m = 5
+letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets'
+rawdat_dir = files_dir / 'Raw Datasets' / 'Originals'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / '3. 6 parameter model'
-traindir0 = train_dir / 'training_test_4'
+traindir0 = train_dir / f'training_test_{n}'
 catalog_dir = files_dir / 'GWTC-1 Samples'
 
 
-flow0 = CBCEstimator.load_from_file(traindir0 / 'overfitting_test.pt')
+flow0 = CBCEstimator.load_from_file(traindir0 / f'v3.{n}.{m}{letter}.pt')
 flow0.change_parameter_name('d_L', to='luminosity_distance')
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
 
-seed = 32#999
-event = f'{seed}.00020'
+seed = 999  # 32
+event = f'{seed}.00001'  # 20
 # 32.00009 is a good example of possible degeneration on distance (with inclination maybe?)
 # 32.00012 looks great, just needs better declination
 # 32.00020 nailed, in spite of messy picture
@@ -37,21 +40,44 @@ dataset = load_rawsets(rawdat_dir, seeds2names(seed))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
-sset0 = flow0.sample_set(3000, trainset[:10][:], name=flow0.name)
+sset0 = flow0.sample_set(3000, trainset[:][:1], name=flow0.name)
 
 error = sset0.accuracy_test(sqrt=True)
 #
 # sdict = sset0[event]
 # fig = sdict.plot(type='corner', truths=trainset['labels'][event])
+from scipy import stats
+kwargs = {
+    'medians': 'all',  # f"Estimator {flow0.name}",
+    'hist_bin_factor': 1,
+    'bins': 20,
+    'title_quantiles': [0.16, 0.5, 0.84],
+    'smooth': 1.4,
+    'label_kwargs': {'fontsize': 25},
+    # 'labelpad': 0.2,
+    'title_kwargs': {'fontsize': 22},
+
+
+    'kde': stats.gaussian_kde,
+    'hist_kwargs': {'density': True},
+    # 'kde': bounded_1d_kde,
+    # 'kde_kwargs': sdict.default_bounds(),
+}
 
 image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
 
-fig = sdict.plot(type='corner', truths=trainset['labels'][event])  # TODO: check how to plot only certain parameters
+fig = plt.figure(figsize=(14, 10))
+select_params = flow0.param_list
+fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
+                 fig=fig, **kwargs)  # DONE: check how to plot only certain parameters
 fig = plot_image(image, fig=fig,
-                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))')
-fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
+                 title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
+                 title_kwargs={'fontsize': 20})
+fig.get_axes()[-1].set_position(pos=[0.62, 0.6, 0.38, 0.38])
+fig.savefig(f'corner_{flow0.name}_{event}_v2.png', bbox_inches='tight')
+plt.show()
 
 
 # For discarding problematic samples
@@ -68,10 +94,10 @@ fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 # fig = sdict.plot(type='skymap')
 
 
-print(error.mean(axis=0))
-samples = flow0.sample_and_log_prob(3000, trainset['images'][0])
-print(-torch.mean(samples[1]))
-plt.show()
+# print(error.mean(axis=0))
+# samples = flow0.sample_and_log_prob(3000, trainset['images'][0])
+# print(-torch.mean(samples[1]))
+# plt.show()
 
 
 '''

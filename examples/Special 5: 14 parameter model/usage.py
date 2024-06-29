@@ -12,11 +12,11 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
-n = 0
+n = 2
 m = 0
-letter = ''
+letter = 'new_pipe_dev'
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets'
+rawdat_dir = files_dir / 'Raw Datasets' / 'new pipe'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
@@ -88,8 +88,8 @@ fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
                  title_kwargs={'fontsize': 40})
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
-fig.savefig(f'corner_{flow0.name}_{event}.png', bbox_inches='tight')
-# plt.show()
+# fig.savefig(f'corner_{flow0.name}_{event}.png', bbox_inches='tight')
+plt.show()
 
 # smooth = 1.4
 # size = 10
