@@ -16,7 +16,7 @@ setup(
     name='dtempest-gw',
     packages=find_namespace_packages(where='src/', include=['dtempest.gw', 'dtempest.gw.generation']),
     package_dir={'': 'src'},
-    version='0.1.0.dev0',
+    version='0.1.0',
     description='Implementation of an NPE approach to gravitational wave parameter estimation',
     author='Daniel Lanchares',
     license='MIT',
