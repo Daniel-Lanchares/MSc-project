@@ -9,7 +9,7 @@ import copy
 import shutil
 
 import numpy as np
-from scipy.integrate import cumtrapz
+from scipy.integrate import cumulative_trapezoid
 from scipy.interpolate import interp1d
 from scipy import stats
 # import h5py
@@ -48,7 +48,7 @@ def resample_posterior_distribution(posterior, nsamples):
     if len(posterior) == 1:
         n, bins = np.histogram(posterior, bins=50)
         n = np.array([0] + [i for i in n])
-        cdf = cumtrapz(n, bins, initial=0)
+        cdf = cumulative_trapezoid(n, bins, initial=0)
         cdf /= cdf[-1]
         icdf = interp1d(cdf, bins)
         samples = icdf(np.random.rand(nsamples))

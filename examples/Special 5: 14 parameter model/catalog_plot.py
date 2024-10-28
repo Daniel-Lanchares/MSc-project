@@ -19,7 +19,7 @@ from pesummary.gw.plots.latex_labels import GWlatex_labels
 n = 0
 m = 0
 letter = ''
-files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
+files_dir = Path('/mnt/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
@@ -39,13 +39,15 @@ class flow0:
 estimation_dir = files_dir / 'Estimation Data' / flow0.name
 corner_dir = estimation_dir / 'Corners'
 
-cat = 'gwtc-1'
+cat = 'gwtc-3'
 
 with open(estimation_dir / f'{flow0.name}_{cat.upper()}.json', 'r') as fp:
     dtpst_data = json.load(fp)
 
 with open(estimation_dir / f'{cat.upper()}.json', 'r') as fp:
     gwtc_data = json.load(fp)
+
+flow0.name = 'GP14'
 
 names = np.array(list(dtpst_data.keys()))
 print(names)
@@ -100,7 +102,7 @@ def for_gwtc1():
     fig, axs = plt.subplots(2, nparams // 2, figsize=(20, 15))
     fig.subplots_adjust(wspace=0.05)
     axs = axs.flatten()
-    [ax.set_yticks([]) if i not in (0, nparams//2)
+    [ax.set_yticks([]) if i not in (0, nparams // 2)
      else ax.set_yticks(np.arange(len(names)) + offset, names, **name_kwargs) for i, ax in enumerate(axs)]
 
     for i, (event, evt_reference) in enumerate(gwtc_data.items()):
@@ -123,7 +125,7 @@ def for_gwtc1():
                 axs[j].axhspan(i + offset - 0.25, i + offset + 0.25, color='tab:red', alpha=0.4)
 
     # [ax.set_yticks([]) for ax in axs[1:]]
-    [(ax.set_ylim((1, len(names)+offset-0.5)),
+    [(ax.set_ylim((1, len(names) + offset - 0.5)),
       ax.grid(axis='x'),
       ax.tick_params(axis='x', **xticks_kwargs)) for ax in axs]
 
@@ -139,7 +141,7 @@ def for_gwtc2():
 
     offset = 1.5
     nparams = 14
-    size = (30, 35)
+    size = (30, 32)
 
     gwtc_kwargs = {
         'capsize': 5,
@@ -194,7 +196,7 @@ def for_gwtc2():
 
     axs: np.ndarray[plt.Axes] = np.concatenate((axs1, axs2), dtype=object)
 
-    [(ax.set_ylim((1, len(names)+offset-0.5)), ax.grid(axis='x')) for ax in axs]
+    [(ax.set_ylim((1, len(names) + offset - 0.5)), ax.grid(axis='x')) for ax in axs]
 
     for i, (event, evt_reference) in enumerate(gwtc_data.items()):
         for j, (param, reference) in enumerate(evt_reference.items()):
@@ -202,7 +204,7 @@ def for_gwtc2():
             dtpst_kwargs_copy = copy(dtpst_kwargs)
             if j == nparams:
                 break
-            if (i, j) != (len(names)//2 - 1, nparams//2 - 1) and (i, j) != (len(names) - 1, nparams - 1):
+            if (i, j) != (len(names) // 2 - 1, nparams // 2 - 1) and (i, j) != (len(names) - 1, nparams - 1):
                 del gwtc_kwargs_copy['label'], dtpst_kwargs_copy['label']
 
             median, upper, lower = reference['median'], reference['upper'], reference['lower']
@@ -232,7 +234,7 @@ def for_gwtc3():
 
     offset = 1.5
     nparams = 14
-    size = (30, 35)
+    size = (30, 30)
 
     gwtc_kwargs = {
         'capsize': 5,
@@ -321,6 +323,9 @@ def for_gwtc3():
     # plt.show()
 
 
-for_gwtc1()
-# for_gwtc2()
-# for_gwtc3()
+if cat == 'gwtc-1':
+    for_gwtc1()
+elif cat == 'gwtc-2.1':
+    for_gwtc2()
+elif cat == 'gwtc-3':
+    for_gwtc3()

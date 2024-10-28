@@ -114,10 +114,12 @@ files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 noise_dir = files_dir / 'Noise' / 'MKIII'
 
 '''
+1126257941: 2015-09-14 09:25:24     V1 not available, full LIGO
 1185366342: 2017-07-29 12:25:24     V1 not available, full LIGO
 1187058342: 2017-08-17 02:25:24
 1186295142: 2017-08-09 06:25:24     H1 not available earlier
-1187490342: 2017-08-23 02:25:24     
+1187490342: 2017-08-23 02:25:24    
+1187528242: 2017-08-23 12:57:04 
 1240194342: 2019-04-25 02:25:24
     1249784742: 2019-08-14 02:25:24
 1263090342: 2020-01-15 02:25:24     H1 has a glitch, V1 gives no psd
@@ -132,7 +134,7 @@ import matplotlib.pyplot as plt
 #     # 1263090342,
 #     1267928742,
 # ]
-times = [1185366342, ]
+times = [1187528242, ]
 colors = ['tab:blue', 'tab:orange', 'tab:green']
 linestyles = ['-', '--', ':']
 

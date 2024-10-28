@@ -12,14 +12,14 @@ from dtempest.core.common_utils import load_rawsets, seeds2names, load_rawsets_p
 from dtempest.gw.conversion import convert_dataset
 import dtempest.core.flow_utils as trans
 
-n = 6  # Training test number
-m = 2  # Model version within training test
-letter = 'LIGO-O2'
-vali_seeds = range(990, 1000)  # 999
-zero_pad = 4
+n = 10  # Training test number
+m = 0  # Model version within training test
+letter = ''
+vali_seeds = 999
+zero_pad = 3
 
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets' / 'mid range' / 'LIGO-O2'
+rawdat_dir = files_dir / 'Raw Datasets' / 'long-window+normal-time-test'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
 traindir = train_dir / f'training_test_{n}'
@@ -38,7 +38,9 @@ params_list = [
     'ra',
     'dec',
     'phase',
-    'psi'
+    'psi',
+    # 'normalized_time'
+    'geocent_time'
 ]
 
 net_config = {
@@ -48,16 +50,17 @@ net_config = {
     'output_features': 128
 }
 
-pre_process = None #transforms.Compose([
-        #transforms.Normalize((0, 0, 0), (1, 1, 1))])
-n_epochs = 12
+# pre_process = transforms.Compose([
+#         transforms.Normalize((0, 0, 0), (1, 1, 1))])
+pre_process = None
+n_epochs = 15
 train_config = {
     'num_epochs': n_epochs,
     'checkpoint_every_x_epochs': None,  # Not yet implemented
     'batch_size': 64,  # 64
     'optim_type': 'Adam',  # 'SGD'
     'learning_rate': 0.001,  # 0.001,
-    'weight_check_max_val': 5e2,
+    'weight_check_max_val': 1e2,
     'weight_check_tenfold': True,
     'weight_check_max_iter': 30,  # No weight check because it doesn't work on rq transforms
     'grad_clip': None,
@@ -69,17 +72,19 @@ train_config = {
 }
 
 flow_config = {  # Smaller flow, hopefully doesn't overfit
-    'scales': {'chirp_mass': 60,  # 100 normal, 40 low, 120 high
+    'scales': {'chirp_mass': 100.0,  # 100 normal, 40 low, 120 high
                'tilt_1': np.pi,
                'tilt_2': np.pi,
                'phi_jl': 2*np.pi,
                'phi_12': 2*np.pi,
-               'luminosity_distance': 5000,  # 5000 normal, 2000 low, 6000 high
+               'luminosity_distance': 5000.0,  # 5000 normal, 2000 low, 6000 high
                'theta_jn': 2 * np.pi,
                'ra': 2*np.pi,
                'dec': np.pi,
                'phase': 2*np.pi,
-               'psi': np.pi},
+               'psi': np.pi,
+               'geocent_time': 24*3600.0},
+    # 'shifts': {'geocent_time': 1187529256.5},
 
     'input_dim': len(params_list),
     'context_dim': net_config['output_features'],
@@ -126,11 +131,19 @@ else:
 
 # shuffle_rng = np.random.default_rng(seed=m)  # For reproducibility of 'random' shuffling of dataset
 
-seeds = range(240)
+seeds = range(85)
 dataset = load_rawsets_pool(rawdat_dir, seeds2names(seeds, zero_pad=zero_pad), processes=os.cpu_count())
+dataset = convert_dataset(dataset, params_list, name='85k long window normal time set')
 
-# dataset.change_parameter_name('d_L', to='luminosity_distance')
-dataset = convert_dataset(dataset, params_list, name='MKIII 240k LIGO-O2')
+# seeds2 = range(40)
+# rawdat_dir2 = files_dir / 'Raw Datasets' / 'mid range' / 'extra low res'
+# dataset2 = load_rawsets_pool(rawdat_dir2, seeds2names(seeds2, zero_pad=zero_pad), processes=os.cpu_count())
+# dataset2 = convert_dataset(dataset2, params_list, name='MKIII 40k extra-low')
+#
+# from dtempest.core.train_utils import TrainSet
+# dataset = TrainSet.concat([dataset, dataset2],
+#                           name='240k extra-low+LV-O3').sample(frac=1, random_state=shuffle_rng)
+# del dataset2
 
 # size = 50  # Images (thousands)
 # paths = [trainset_dir / '10_sets' / (f'{0 + offset} to {0 + offset + 9}.' + ', '.join(params_list) + '.pt')
@@ -222,7 +235,40 @@ Even less spread.
 Average train: -6.51±0.372, Delta: -0.407 (6.67%)
 Average valid: -5.19±0.247, Delta: -0.0697 (1.36%)
 
-5.6.1LIGO-O2 6 hours 12 epochs at 240k (16 steps)  Very good, though might shallower may be just as good 
+5.6.1LIGO-O2 6 hours 12 epochs at 240k (16 steps)  Very good, though shallower may be just as good 
 Average train: -8.09±0.372, Delta: -0.145 (1.82%)
 Average valid: -6.15±0.338, Delta: -0.0297 (0.486%)
+
+5.6.0LIGO-O2-v2 5.8 hours 12 epochs at 240k (8 steps)  "Disappointing" -Creationist Hercules
+Average train: -8.32±0.298, Delta: -0.136 (1.66%)
+Average valid: -7.35±0.378, Delta: -0.0444 (0.608%)
+
+5.6.0LIGO-01 5.2 hours 12 epochs at 240k (8 steps)  Meh. I think it needs new pipeline with older noise system
+Average train: -12.7±0.432, Delta: -0.163 (1.3%)
+Average valid: -12.0±0.674, Delta: -0.0438 (0.367%)
+
+5.6.0GW170823 5.75 hours 12 epochs at 240k      Bad, but lots of room for improvement
+Average train: -27.6±0.532, Delta: -1.14 (4.3%)
+Average valid: -26.3±0.929, Delta: -0.775 (3.04%)
+
+5.7.0GW170823 9.56 hours 20 epochs 240k         Didn't always go down, but I wouldn't say it is overfitted
+Average train: -33.0±0.735, Delta: -0.789 (2.45%)
+Average valid: -28.5±2.0, Delta: -0.568 (2.03%)
+
+5.8.0GW170823 24 hours 30 epochs 480k         Didn't always go down, but I wouldn't say it is overfitted
+An imaginative way of wasting two full days. Same errors as other specialized models. Chirp more precise than GWTC-1
+Average train: -34.0±0.517, Delta: -0.538 (1.61%)
+Average valid: -30.4±0.99, Delta: -0.45 (1.5%)
+
+
+
+5.0.0V10    Vintage model, made to look like Spv5.0.0 but with Network-SNR > 10. 
+Trained really fast (2.3 hours 12 epochs @ 50k)
+Average train: -10.4±0.421, Delta: -0.271 (2.67%)
+Average valid: -9.42±0.414, Delta: -0.0982 (1.05%)
+
+
+5.10.0      5:15 for 85k 15 epochs. Long window & normal time. Huge distance improvements at the cost of general accuracy. Deeper?
+Average train: -9.09±0.446, Delta: -0.14 (1.56%)
+Average valid: -7.82±0.641, Delta: -0.0331 (0.426%)
 '''

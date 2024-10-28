@@ -307,7 +307,7 @@ def load_rawsets_pool(directory, names: str | list[str], verbose: bool = True, *
         for num, seed_list in seeds.items():
             metadata[num]['seed'] = seed_list
 
-    return RawSet(dataset, name='+'.join(names), pool_kwargs=pool_kwargs, metadata=metadata)
+    return RawSet(dataset, name='+'.join(names), metadata=metadata)
 
 
 class InjectionList(list):

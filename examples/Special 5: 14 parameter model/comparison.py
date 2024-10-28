@@ -1,4 +1,5 @@
 from pathlib import Path
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.colors import TABLEAU_COLORS
@@ -16,10 +17,10 @@ from pesummary.gw.conversions import convert
 '''
 
 '''
-n = 5
-m = 0
-letter = 'high_chirp'
-files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
+n = 6
+m = 1
+letter = 'LIGO-O2'
+files_dir = Path('/mnt/easystore/Daniel/MSc-files')
 # rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
@@ -29,7 +30,11 @@ catalog_2 = files_dir / 'GWTC-2.1 Samples'
 catalog_3 = files_dir / 'GWTC-3 Samples'
 
 flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv5.{n}.{m}{letter}.pt')
+flow0.rename('GP14')
 flow0.eval()
+flow0.pprint_metadata()
+# plt.style.use('draft.mplstyle')
+raise Exception
 
 # flow2 = CBCEstimator.load_from_file(train_dir / f'training_test_{n+2}' / f'Spv5.{n+2}.{m}{letter}.pt')
 # flow2.eval()
@@ -157,9 +162,9 @@ def basic_corner():
     # event = 'GW200308_173609'
     # gwtc = convert(SampleDict.from_file("https://dcc.ligo.org/public/0157/P1800370/005/GW150914_GWTC-1.hdf5"))
 
-    resol = (64, 96)#(48, 72)
-    merger = Merger(event, cat, img_res=resol)
-
+    resol = (128, 128) #(50, 200)  # (32, 48)  # (48, 72)
+    merger = Merger(event, cat, img_res=resol, image_window=(-0.065, 0.075), old_pipe=True)
+    # merger = Merger(event, cat, img_res=resol, image_window=(-0.3, 0.1))
     if cat == 'gwtc-1':
         gwtc = convert(CBCSampleDict.from_file(catalog_1 / f'{event}_GWTC-1.hdf5'))
     elif cat == 'gwtc-2.1':
@@ -168,6 +173,13 @@ def basic_corner():
         gwtc = convert(CBCSampleDict.from_file(catalog_3 / f'{event}_cosmo.h5')['C01:Mixed'])
     else:
         gwtc = None
+
+    # print(type(gwtc['geocent_time']))
+    if 'geocent_time' in gwtc.keys() and 'geocent_time' in flow0.param_list:
+        from pesummary.utils.array import Array
+        # gwtc['geocent_time'] = Array(gwtc['geocent_time'].to_numpy() % 24*3600)
+        gwtc['geocent_time'] = Array((gwtc['geocent_time'].to_numpy() % 24 * 3600)/(24*3600))
+        flow0.scales[flow0.param_list.index('geocent_time')] = 1
 
     # print(type(CBCSampleDict.from_samplesdict(gwtc)))
     # raise Exception
@@ -212,7 +224,7 @@ def basic_corner():
 
     fig = multi.plot(type='corner', parameters=select_params, **kwargs)
     del multi
-    plt.tight_layout(h_pad=-5, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
+    plt.tight_layout(h_pad=-4.5, w_pad=-0.8)  # h_pad -1 for 1 line title, -3 for 2 lines
     # fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
     #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)
     fig = plot_image(image, fig=fig,
@@ -223,13 +235,17 @@ def basic_corner():
 
     from dtempest.core.common_utils import redraw_legend
     redraw_legend(fig,
-                  fontsize=30,  # 25 for GWTC-1, 30 for GWTC-2/3
+                  fontsize=25,  # 25 for GWTC-1, 30 for GWTC-2/3
                   loc='upper center',
                   bbox_to_anchor=(0.4, 0.98),
                   handlelength=2,
                   linewidth=5)
 
-    fig.savefig(f'{event}_{flow0.name}_comparison.png', bbox_inches='tight')
+    # To remove gridlines
+    for ax in fig.get_axes():
+        ax.grid(False)
+
+    fig.savefig(f'{event}_{flow0.name}_corner.pdf', bbox_inches='tight')
     # plt.show()
 
 

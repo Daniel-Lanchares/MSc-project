@@ -93,7 +93,7 @@ def chi_p(mass_1, mass_2, a_1, a_2, tilt_1=0, tilt_2=0, **kwargs):
     return np.maximum(chi1_p, q * (3 * q + 4) / (4 * q + 3) * chi2_p)
 
 
-def luminosity_distance(z):
+def luminosity_distance(z, **kwargs):
     raise NotImplementedError
 
 

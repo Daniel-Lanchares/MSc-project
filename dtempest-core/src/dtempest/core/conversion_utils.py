@@ -36,11 +36,13 @@ def make_image(data: dict | np.ndarray, jargon: dict = None):
         jargon = no_jargon
     if isinstance(data, dict):
         image = data[jargon['image']]
-        image_arr = np.dstack((image[jargon['R']],
-                               image[jargon['G']],
-                               image[jargon['B']]))
+        print(image)
+        image_arr = np.dstack([image[jargon[channel]]
+                               if jargon[channel] in image.keys() else np.zeros_like(list(image.values())[0])
+                               for channel in ('R', 'G', 'B')]
+                              )
     else:
-        image_arr = np.dstack((data[0], data[1], data[2]))
+        image_arr = np.dstack([data[i] for i in range(data.shape[0])])  # Todo: test this option with variable channels
     return image_arr
 
 
@@ -319,6 +321,28 @@ def plot_hist(dataset, params_list, fig=None, figsize=None, title: str = 'defaul
     else:
         ax.set_title(title)
     return fig
+
+
+def plot_hist_ax(dataset,
+                 params_list: list | str,
+                 ax: plt.Axes,
+                 title: str = 'default', jargon: dict = None, *hist_args, **hist_kwargs):
+    dataset = check_format(dataset)
+    if isinstance(params_list, str):
+        params_list = [params_list, ]
+    data = extract_parameters(dataset, params_list, jargon)
+    ax.hist(data, *hist_args, **hist_kwargs)
+    # Study multiple label for lists, probably useless though
+    ax.set_xlabel(f'{get_param_alias(params_list[0], jargon)} ({get_param_units(params_list[0], jargon)})')
+    # Do the same for set_title ?
+    names = ''
+    for name in params_list:
+        names += get_param_alias(name, jargon) + ', '
+    names = names[:-2]
+    if title in ['default', None]:
+        ax.set_title(f'{names} histogram')
+    else:
+        ax.set_title(title)
 
 
 def plot_hists(dataset,

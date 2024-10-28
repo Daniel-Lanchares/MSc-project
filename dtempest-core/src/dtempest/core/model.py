@@ -1,23 +1,18 @@
-import re
-import time
 import torch
 import numpy as np
-import matplotlib.pyplot as plt
 from pathlib import Path
-from copy import copy
 from collections import OrderedDict
 from typing import Callable
+from typing_extensions import Self
 from pandas._typing import RandomState as pd_RandomState
 
 from tqdm import tqdm
-from torch.utils.data import DataLoader
 
 from .config import no_jargon
 from .common_utils import identity, check_format
 from .flow_utils import create_flow
 from .net_utils import create_feature_extractor, create_full_net
 from .train_utils import train_model, TrainSet, check_trainset_format, FeederDataset, check_weight_viability
-
 from .sampling import SampleSet, SampleDict, MSEDataFrame, MSESeries
 
 class_dict = {
@@ -94,11 +89,17 @@ class Estimator:
         self.device = device
 
         self._preprocess = preprocess
+        self.param_list = param_list
 
         if 'scales' in flow_config.keys():
             self.scales = self._get_scales(flow_config['scales'])
         else:
             self.scales = torch.ones(len(self.param_list))
+
+        if 'shifts' in flow_config.keys():
+            self.shifts = self._get_shifts(flow_config['shifts'])
+        else:
+            self.shifts = torch.zeros(len(self.param_list))
 
         if mode == 'extractor+flow':
             self.model = create_flow(emb_net=create_feature_extractor(**net_config), **flow_config)
@@ -121,16 +122,29 @@ class Estimator:
 
     def _get_scales(self, scales_config):
         if type(scales_config) is list:
-            assert len(scales_config) == len(self.param_list), ('Scales need no be of same length as '
+            assert len(scales_config) == len(self.param_list), ('Scales need to be of same length as '
                                                                 'list of parameters: '
                                                                 f'{len(scales_config)} != {len(self.param_list)}')
-            return scales_config
+            return torch.tensor(scales_config)
         elif type(scales_config) is dict:
             return torch.tensor(
                 [scales_config[param] if param in scales_config.keys() else 1 for param in self.param_list]
             )
         else:
             return torch.ones(len(self.param_list))
+
+    def _get_shifts(self, shifts_config):
+        if type(shifts_config) is list:
+            assert len(shifts_config) == len(self.param_list), ('Scales need to be of same length as '
+                                                                'list of parameters: '
+                                                                f'{len(shifts_config)} != {len(self.param_list)}')
+            return torch.tensor(shifts_config)
+        elif type(shifts_config) is dict:
+            return torch.tensor(
+                [shifts_config[param] if param in shifts_config.keys() else 0 for param in self.param_list]
+            )
+        else:
+            return torch.zeros(len(self.param_list))
 
     def model_to_device(self, device):
         """
@@ -149,7 +163,7 @@ class Estimator:
         self.model.to(self.device)
 
     @classmethod
-    def load_from_file(cls, savefile_path: str | Path, get_metadata: bool = False, **kwargs):
+    def load_from_file(cls, savefile_path: str | Path, get_metadata: bool = False, **kwargs) -> Self:
         """
         savefile should be a torch.save() of a tuple(state_dict, metadata)
         """
@@ -187,7 +201,7 @@ class Estimator:
         elif len(context.shape) == 3:
             context = context.expand(1, *context.shape)
         samples = self.model.sample(num_samples, context)
-        samples[:] = torch.mul(samples[:], self.scales)
+        samples[:] = torch.mul(samples[:], self.scales) + self.shifts
         return samples
 
     def log_prob(self, inputs, context, preprocess: bool = True):
@@ -203,7 +217,7 @@ class Estimator:
         elif len(context.shape) == 3:
             context = context.expand(1, *context.shape)
         samples, logprobs = self.model.sample_and_log_prob(num_samples, context)
-        samples[:] = torch.mul(samples[:], self.scales)
+        samples[:] = torch.mul(samples[:], self.scales) + self.shifts
         return samples, logprobs
 
     def pprint_metadata(self, except_keys=None):
@@ -223,6 +237,7 @@ class Estimator:
         pprint(data)
 
     def get_training_stage_seeds(self, stage: int = -1) -> list[int] | None:
+        import re
         if len(self.metadata['train_history']) == 0:
             return None
         if stage == -1:
@@ -289,7 +304,8 @@ class Estimator:
     def rescale_trainset(self, trainset: TrainSet):
         # for event in trainset.index:
         #     trainset.loc[event, 'labels'] = np.divide(trainset.loc[event, 'labels'], self.scales.numpy())
-        trainset.loc[:, 'labels'] = trainset.loc[:, 'labels'].apply(lambda x: np.divide(x, self.scales.numpy()))
+        trainset.loc[:, 'labels'] = trainset.loc[:, 'labels'].apply(
+            lambda x: np.divide(x, self.scales.numpy()) - self.shifts.numpy())
         return trainset
 
     def _append_training_stage(self, train_config):
@@ -311,6 +327,9 @@ class Estimator:
                make_plot: bool = True) \
             -> tuple[np.ndarray, np.ndarray] | tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
 
+        import time
+        import matplotlib.pyplot as plt
+        from torch.utils.data import DataLoader
         # Load trainset and rescale (Inner model works with rescaled parameters only)
         trainset = check_trainset_format(trainset)
         trainset = self.rescale_trainset(trainset)
@@ -513,6 +532,8 @@ class Estimator:
                     reference: torch.Tensor = None,
                     preprocess: bool = True,
                     _class_dict: dict = None) -> SampleDict:
+        from copy import copy
+
         samples = self.sample(num_samples, context, preprocess).detach()
         if params is None:
             params = self.param_list

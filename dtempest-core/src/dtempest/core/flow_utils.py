@@ -13,7 +13,8 @@ def create_flow(  # Adapted from DINGO
         base_transform_kwargs: dict, middle_transform_kwargs: dict,
         final_transform: Callable, final_transform_kwargs: dict,
         emb_net=None,
-        scales=None  # Here for backwards-compatibility
+        scales=None,  # Here for backwards-compatibility
+        shifts=None,  # Here for backwards-compatibility
 ):
     """
     Build NSF model. This models the posterior distribution p(y|x).

@@ -5,7 +5,7 @@ from dtempest.gw import CBCEstimator
 from dtempest.gw.sampling import CBCSampleDict, CBCComparisonSampleDict
 
 from dtempest.gw.conversion import plot_image
-from dtempest.gw.catalog import Catalog
+from dtempest.gw.catalog import Merger
 
 from scipy import stats
 # from pesummary.utils.bounded_1d_kde import bounded_1d_kde
@@ -16,8 +16,8 @@ from pesummary.gw.conversions import convert
 '''
 n = 12
 m = 0
-letter = 'e'
-files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
+letter = 'c'
+files_dir = Path('/mnt/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
@@ -30,9 +30,12 @@ catalog_3 = files_dir / 'GWTC-3 Samples'
 # flow0.eval()
 
 flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.12.0c.pt')
+flow0.rename('GP7')
 flow0.eval()
-flow1 = CBCEstimator.load_from_file(traindir1 / f'Spv2.13.0b.pt')
-flow1.eval()
+flow0.pprint_metadata()
+raise Exception
+# flow1 = CBCEstimator.load_from_file(traindir1 / f'Spv2.13.0b.pt')
+# flow1.eval()
 
 # from pprint import pprint
 # from copy import deepcopy
@@ -65,7 +68,7 @@ elif cat == 'gwtc-3':
 else:
     gwtc = None
 
-catalog = Catalog(cat)
+# catalog = Catalog(cat)
 
 # seed = 999
 # event = f'{seed}.00002'
@@ -77,9 +80,10 @@ catalog = Catalog(cat)
 
 # image = testset['images'][event]
 # label = testset['labels'][event]
-image = catalog[event].make_array()
+merger = Merger(event, cat, img_res=(128, 128), image_window=(-0.065, 0.075), old_pipe=True)
+image = merger.make_array()
 sdict0 = flow0.sample_dict(10000, context=image)
-sdict1 = flow1.sample_dict(10000, context=image)
+# sdict1 = flow1.sample_dict(10000, context=image)
 
 multi = CBCComparisonSampleDict({"GWTC-1": gwtc,
                                  # "pycbc": convert(CBCSampleDict.from_file((
@@ -118,13 +122,25 @@ fig = plot_image(image, fig=fig,
                  title_kwargs={'fontsize': 20})
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
 
-from dtempest.core.common_utils import change_legend_loc
+# from dtempest.core.common_utils import change_legend_loc
+#
+# change_legend_loc(fig, 'upper center')
+from dtempest.core.common_utils import redraw_legend
+redraw_legend(fig,
+              fontsize=25,  # 25 for GWTC-1, 30 for GWTC-2/3
+              loc='upper center',
+              bbox_to_anchor=(0.4, 0.98),
+              handlelength=2,
+              linewidth=5)
 
-change_legend_loc(fig, 'upper center')
+# To remove gridlines
+for ax in fig.get_axes():
+    ax.grid(False)
 
 # plt.savefig(f'{event}_{flow0.name}_vs_{flow1.name}.png', bbox_inches='tight')
 # plt.savefig(f'{event}_{flow0.name}.png', bbox_inches='tight')
-plt.show()
+fig.savefig(f'{event}_{flow0.name}_corner.pdf', bbox_inches='tight')
+# plt.show()
 # Problems with skymap as always. Cannot translate histogram to projection.
 # import numpy as np
 # corner_colors = ['#0072C1', '#b30909', '#8809b3', '#b37a09']

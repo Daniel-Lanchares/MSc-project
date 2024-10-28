@@ -19,9 +19,9 @@ import time
 '''
 
 '''
-n = 5
+n = 2
 m = 0
-letter = 'low_chirp'
+letter = ''
 files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets'
 trainset_dir = files_dir / 'Trainsets'
@@ -73,8 +73,11 @@ plot_font_dict = {
     },
 }
 
+plt.style.use('draft.mplstyle')
+
 merger_kwargs = {
-    'img_res': (64, 96)
+    'img_res': (128, 128),  # (64, 96),
+    'image_window': (-0.065, 0.075)#(-0.15, 0.1)
 }
 resol = merger_kwargs['img_res']
 
@@ -136,7 +139,8 @@ for event in catalog.common_names:
 
     del sdict, gwtc
 
-    select_params = flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
+    select_params = [param for param in flow0.param_list if param != 'geocent_time']
+    #flow0.param_list  # ['chirp_mass', 'mass_ratio', 'chi_eff', 'theta_jn', 'luminosity_distance']
 
     event_data = multi.get_median_data(select_params, as_dict=True)
     dtpst_data[event] = event_data[f"Estimator {flow0.name}"]
@@ -173,7 +177,7 @@ for event in catalog.common_names:
 
     fig = multi.plot(type='corner', parameters=select_params, **kwargs)
     del multi
-    plt.tight_layout(h_pad=-3, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
+    plt.tight_layout(h_pad=-4, w_pad=-0.8)  # h_pad -1 for 1 line title, -3 for 2 lines
     fig = plot_image(image, fig=fig,
                      title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
                      title_kwargs={'fontsize': plot_font_dict['title'][cat]},  # 40 for GWTC-1, 40 for GWTC-2/3?
@@ -186,7 +190,7 @@ for event in catalog.common_names:
                   handlelength=2,
                   linewidth=5)
 
-    fig.savefig(corner_dir / f'{event}_{flow0.name}_{cat.upper()}.png', bbox_inches='tight')
+    fig.savefig(corner_dir / f'{event}_{flow0.name}_{cat.upper()}.pdf', bbox_inches='tight')
 
     print('\n' * esp)
     print(f"Event '{event}' saved")
@@ -212,4 +216,8 @@ Spv5.4.0 Analyses GWTC-3 in 10.89 minutes (35 events)
 Spv5.5.0low_chirp Analyses GWTC-1 in 7.66 minutes (11 events)
 Spv5.5.0low_chirp Analyses GWTC-2.1 in ? minutes (43 events, missing GW190720_000836 due to nan issues in V1 data)
 Spv5.5.0low_chirp Analyses GWTC-3 in ? minutes (35 events)
+
+Spv5.0.0V Analyses GWTC-1 in 7.69 minutes (11 events)
+Spv5.0.0V Analyses GWTC-2.1 in 14.88 minutes (43 events)
+Spv5.0.0V Analyses GWTC-3 in 12.03 minutes (35 events)
 '''

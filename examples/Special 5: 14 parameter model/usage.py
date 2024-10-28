@@ -12,11 +12,11 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 '''
 
 '''
-n = 2
-m = 0
-letter = 'new_pipe_dev'
-files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
-rawdat_dir = files_dir / 'Raw Datasets' / 'new pipe'
+n = 6
+m = 1
+letter = 'LIGO-O2'
+files_dir =  Path('/mnt/easystore/Daniel/MSc-files')
+rawdat_dir = files_dir / 'Raw Datasets' / 'mid range' / 'GW170823'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 5. 14 parameter model'
 traindir0 = train_dir / f'training_test_{n}'
@@ -29,11 +29,15 @@ flow0.rename(f'Spv5.{n}.{m}{letter}')
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
 # flow1.eval()
+flow0.pprint_metadata()
+raise Exception
+
+zero_pad = 4
 
 seed = 999
-event = f'{seed}.00001'
+event = f'GW170823.{seed:0{zero_pad}}.00003'
 
-dataset = load_rawsets(rawdat_dir, seeds2names(seed))
+dataset = load_rawsets(rawdat_dir, seeds2names(seed, zero_pad=zero_pad))
 dataset.change_parameter_name('d_L', to='luminosity_distance')
 trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 
@@ -57,6 +61,9 @@ trainset = convert_dataset(dataset, flow0.param_list, name=f'Dataset {seed}')
 # sdict = sset0[event]
 # fig = sdict.plot(type='corner', truths=trainset['labels'][event])
 
+trigger = flow0.shifts[-1].item()
+flow0.shifts[-1] = 0
+
 image = trainset['images'][event]
 label = trainset['labels'][event]
 sdict = flow0.sample_dict(10000, context=image, reference=label)
@@ -78,9 +85,11 @@ kwargs = {
     # 'kde_kwargs': multi.default_bounds(),
 }
 
-select_params = flow0.param_list
+select_params = flow0.param_list#[param for param in flow0.param_list if param != 'geocent_time']
+truths = sdict.select_truths(select_params)
+truths[-1] -= trigger
 
-fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params), **kwargs)
+fig = sdict.plot(type='corner', parameters=select_params, truths=truths, **kwargs)
 plt.tight_layout(h_pad=-3, w_pad=-0.3)  # h_pad -1 for 1 line title, -3 for 2 lines
 # fig = sdict.plot(type='corner', parameters=select_params, truths=sdict.select_truths(select_params),
 #                  smooth=smooth, smooth1d=smooth, medians=True, fig=fig)

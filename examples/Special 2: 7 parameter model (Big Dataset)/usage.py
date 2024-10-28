@@ -14,7 +14,7 @@ from dtempest.gw.conversion import convert_dataset, plot_image
 n = 12
 m = 0
 letter = 'c'
-files_dir = Path('/media/daniel/easystore/Daniel/MSc-files')
+files_dir = Path('/mnt/easystore/Daniel/MSc-files')
 rawdat_dir = files_dir / 'Raw Datasets' / 'Originals'
 trainset_dir = files_dir / 'Trainsets'
 train_dir = files_dir / 'Examples' / 'Special 2. 7 parameter model (Big Dataset)'
@@ -24,6 +24,9 @@ catalog_dir = files_dir / 'GWTC-1 Samples'
 
 flow0 = CBCEstimator.load_from_file(traindir0 / f'Spv2.{n}.{m}{letter}.pt')
 flow0.rename(f'Spv2.{n}.{m}{letter}')
+
+flow0.pprint_metadata()
+raise Exception
 
 # flow1 = Estimator.load_from_file(traindir4 / 'v0.4.3.pt')
 flow0.eval()
@@ -74,7 +77,7 @@ fig = plot_image(image, fig=fig,
                  title_maker=lambda data: f'{event} Q-Transform image\n(RGB = (L1, H1, V1))',
                  title_kwargs={'fontsize': 20})
 fig.get_axes()[-1].set_position(pos=[0.62, 0.55, 0.38, 0.38])
-fig.savefig(f'corner_{flow0.name}_{event}_v2.png', bbox_inches='tight')
+# fig.savefig(f'corner_{flow0.name}_{event}_v2.png', bbox_inches='tight')
 plt.show()
 
 

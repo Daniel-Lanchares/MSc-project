@@ -27,7 +27,9 @@ class Merger(pycbc_Merger, dict):
                  name: str,
                  source: str | dict = 'gwtc-1',
                  image_window: tuple = None,
-                 img_res: tuple[int, int] = (128, 128)):
+                 img_res: tuple[int, int] = (128, 128),
+                 frange: tuple[float, float] = (20.0, 300.0),
+                 old_pipe: bool = False):
         """ Return the information of a merger
 
         Parameters
@@ -71,10 +73,14 @@ class Merger(pycbc_Merger, dict):
         self.time = self.data['GPS']
         self.frame = 'source'
         self.img_res = img_res
+        self.frange = frange
+        self.old_pipe = old_pipe
 
         if image_window is None:
             self.image_window = default_gen_config['q_interval']
-            # print(f'Warning: No image_window specified. Resorting to default: {self.image_window}')
+            print(f'Warning: No image_window specified. Resorting to default: {self.image_window}')
+        else:
+            self.image_window = image_window
         # print(name)
         self.qtransforms = self.process_strains()
         for ifo in ('L1', 'H1', 'V1'):
@@ -101,18 +107,19 @@ class Merger(pycbc_Merger, dict):
         from gwpy.timeseries import TimeSeries
         channels = {}
         for ifo in self.detectors:
-            # q_window = (self.time + self.image_window[0], self.time + self.image_window[1])
-            # ts = self.strain(ifo)
-            # channels[ifo] = process_strain(ts._return(np.nan_to_num(ts)), ifo, q_window)
             ts = self.strain(ifo)
-            ts = TimeSeries.from_pycbc(whiten(ts, get_psd(ts)))
-            ts = ts.crop(self.time - 1, self.time + 1)
-            channels[ifo] = ifo_q_transform(ts.value,
-                                            resol=self.img_res,
-                                            duration=ts.duration,
-                                            sampling_frequency=ts.sample_rate,
-                                            outseg=(-0.1, 0.1),
-                                            frange=(20, 300))  # Todo: change from outside
+            if self.old_pipe:
+                q_window = (self.time + self.image_window[0], self.time + self.image_window[1])
+                channels[ifo] = process_strain(ts._return(np.nan_to_num(ts)), ifo, q_window)
+            else:
+                ts = TimeSeries.from_pycbc(whiten(ts, get_psd(ts)))
+                ts = ts.crop(self.time - 1, self.time + 1)
+                channels[ifo] = ifo_q_transform(ts.value,
+                                                resol=self.img_res,
+                                                duration=ts.duration,
+                                                sampling_frequency=ts.sample_rate,
+                                                outseg=self.image_window,
+                                                frange=self.frange)
         return channels
 
     def make_image(self):

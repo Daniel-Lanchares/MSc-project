@@ -15,6 +15,7 @@ make_image = partial(core.make_image, jargon=cbc_jargon)
 convert_dataset_fast = partial(core.convert_dataset, jargon=cbc_jargon)
 extract_parameters = partial(core.extract_parameters, jargon=cbc_jargon)
 plot_hist = partial(core.plot_hist, jargon=cbc_jargon)
+plot_hist_ax = partial(core.plot_hist_ax, jargon=cbc_jargon)
 plot_hists = partial(core.plot_hists, jargon=cbc_jargon)
 plot_image = partial(core.plot_image, jargon=cbc_jargon)
 plot_images = partial(core.plot_images, jargon=cbc_jargon)
@@ -28,14 +29,15 @@ def extract_SNR(dataset, detector_list):
 
     dataset = core.check_format(dataset)
 
-    SNR_list = []
-
-    for inj in dataset:
-        SNR_dict = inj['SNR']
-
-        for ifo in detector_list:
-            if ifo in SNR_dict:
-                SNR_list.append(SNR_dict[ifo])
+    # SNR_list = []
+    #
+    # for _, inj in dataset.iterrows():
+    #     SNR_dict = inj['SNR']
+    #
+    #     for ifo in detector_list:
+    #         if ifo in SNR_dict:
+    #             SNR_list.append(SNR_dict[ifo])
+    return [np.sqrt(sum([snr**2 for snr in inj['SNR'].values()])) for _, inj in dataset.iterrows()]
 
 
 def pe_convert_wrapper(target_params, sample_dict):
@@ -53,7 +55,7 @@ def pe_convert_wrapper(target_params, sample_dict):
 def convert_dataset_reliable(dataset: str | Path | list | np.ndarray | torch.Tensor,
                              params_list: list | np.ndarray | torch.Tensor,
                              outpath: str | Path = None,
-                             name: str = None):
+                             name: str = None)-> TrainSet:
     """
     Unlike its 'fast' counterpart, it outsources its parameter conversion entirely.
     It is reliable and thorough but slow.

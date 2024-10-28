@@ -75,3 +75,29 @@ def generate_q_transforms(snr_range,
                                           asds=asds)
     qt_data = [ifo_q_transform(tseries, img_res, duration, **qtrans_kwargs) for tseries in ts_data]
     return qt_data, params
+
+
+def generate_q_transforms_IV(snr_range,
+                             prior_s,
+                             prior,
+                             sampling_frequency=1024,
+                             waveform_generator=None,
+                             ifolist=None,
+                             noise_ts=None,
+                             asds=None,
+                             img_res: tuple[int, int] = (128, 128),
+                             duration=2,
+                             qtrans_kwargs=None):
+    if qtrans_kwargs is None:
+        qtrans_kwargs = {}
+    from dtempest.gw.generation.mkIV import generate_timeseries_IV
+    ts_data, params = generate_timeseries_IV(snr_range,
+                                             prior_s,
+                                             prior,
+                                             sampling_frequency=sampling_frequency,
+                                             waveform_generator=waveform_generator,
+                                             ifolist=ifolist,
+                                             asds=asds,
+                                             noise_ts=noise_ts)
+    qt_data = [ifo_q_transform(tseries, img_res, duration, **qtrans_kwargs) for tseries in ts_data]
+    return qt_data, params
